@@ -31,20 +31,37 @@ type Request struct {
 	Destination S3URI
 	Recursive   bool
 	DryRun      bool
+	Options     Options
+	Progress    bool
+}
+
+type Options struct {
+	ContentType  string
+	Metadata     map[string]string
+	StorageClass string
+	ACL          string
 }
 
 type PlannedUpload struct {
-	LocalPath string
-	Bucket    string
-	Key       string
-	Size      int64
+	LocalPath    string
+	Bucket       string
+	Key          string
+	Size         int64
+	ContentType  string
+	Metadata     map[string]string
+	StorageClass string
+	ACL          string
 }
 
 type UploadInput struct {
-	LocalPath string
-	Bucket    string
-	Key       string
-	Size      int64
+	LocalPath    string
+	Bucket       string
+	Key          string
+	Size         int64
+	ContentType  string
+	Metadata     map[string]string
+	StorageClass string
+	ACL          string
 }
 
 type ObjectUploader interface {

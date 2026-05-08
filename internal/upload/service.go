@@ -17,23 +17,42 @@ func (s Service) Upload(ctx context.Context, req Request) error {
 		return err
 	}
 
-	for _, item := range planned {
+	for i, item := range planned {
+		index := i + 1
+		total := len(planned)
 		if req.DryRun {
 			if s.Stdout != nil {
-				fmt.Fprintf(s.Stdout, "dry-run: %s -> s3://%s/%s\n", item.LocalPath, item.Bucket, item.Key)
+				fmt.Fprintf(s.Stdout, "dry-run [%d/%d]: %s -> s3://%s/%s (%s)\n", index, total, item.LocalPath, item.Bucket, item.Key, formatSize(item.Size))
 			}
 			continue
 		}
 		if s.Uploader == nil {
 			return fmt.Errorf("uploader is not configured")
 		}
+		if req.Progress && s.Stdout != nil {
+			fmt.Fprintf(s.Stdout, "uploading [%d/%d]: %s -> s3://%s/%s (%s)\n", index, total, item.LocalPath, item.Bucket, item.Key, formatSize(item.Size))
+		}
 		if err := s.Uploader.Upload(ctx, UploadInput(item)); err != nil {
 			return fmt.Errorf("upload %s: %w", item.LocalPath, err)
 		}
-		if s.Stdout != nil {
-			fmt.Fprintf(s.Stdout, "uploaded: %s -> s3://%s/%s\n", item.LocalPath, item.Bucket, item.Key)
+		if req.Progress && s.Stdout != nil {
+			fmt.Fprintf(s.Stdout, "uploaded [%d/%d]: %s -> s3://%s/%s\n", index, total, item.LocalPath, item.Bucket, item.Key)
 		}
 	}
 
 	return nil
+}
+
+func formatSize(size int64) string {
+	const unit = 1024
+	if size < unit {
+		return fmt.Sprintf("%d B", size)
+	}
+
+	div, exp := int64(unit), 0
+	for n := size / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %ciB", float64(size)/float64(div), "KMGTPE"[exp])
 }

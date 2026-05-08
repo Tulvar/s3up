@@ -5,4 +5,6 @@ type Config struct {
 	Region      string
 	EndpointURL string
 	PathStyle   bool
+	Concurrency int
+	PartSize    int64
 }

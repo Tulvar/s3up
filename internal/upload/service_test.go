@@ -29,6 +29,7 @@ func TestServiceUploadUsesPlannedUploads(t *testing.T) {
 	err := Service{Uploader: uploader, Stdout: &out}.Upload(context.Background(), Request{
 		Source:      file,
 		Destination: S3URI{Bucket: "bucket", Key: "uploads/"},
+		Progress:    true,
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -42,6 +43,29 @@ func TestServiceUploadUsesPlannedUploads(t *testing.T) {
 	}
 	if out.String() == "" {
 		t.Fatalf("expected progress output")
+	}
+}
+
+func TestServiceUploadCanDisableProgress(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	file := filepath.Join(dir, "artifact.txt")
+	writeFile(t, file, "hello")
+
+	uploader := &recordingUploader{}
+	var out bytes.Buffer
+
+	err := Service{Uploader: uploader, Stdout: &out}.Upload(context.Background(), Request{
+		Source:      file,
+		Destination: S3URI{Bucket: "bucket", Key: "uploads/"},
+		Progress:    false,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if out.String() != "" {
+		t.Fatalf("expected no progress output, got %q", out.String())
 	}
 }
 

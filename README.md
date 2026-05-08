@@ -18,6 +18,13 @@ Useful flags:
 --path-style    use path-style addressing
 --recursive     upload directories recursively
 --dry-run       print planned uploads without sending objects
+--no-progress   disable upload progress output
+--content-type  content type for uploaded objects
+--metadata      object metadata as key=value, can be repeated
+--storage-class S3 storage class
+--acl           S3 canned ACL
+--concurrency   multipart upload concurrency
+--part-size     multipart part size, for example 8MiB
 ```
 
 Example for a local S3-compatible service:
@@ -27,6 +34,20 @@ s3up upload ./file.txt s3://bucket/file.txt \
   --endpoint-url http://localhost:9000 \
   --region us-east-1 \
   --path-style
+```
+
+Example with object options:
+
+```sh
+s3up upload ./dist s3://bucket/site/ \
+  --recursive \
+  --content-type text/html \
+  --metadata app=s3up \
+  --metadata env=prod \
+  --storage-class STANDARD_IA \
+  --acl bucket-owner-full-control \
+  --concurrency 8 \
+  --part-size 16MiB
 ```
 
 ## Development

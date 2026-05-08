@@ -32,5 +32,14 @@ func NewUploader(ctx context.Context, cfg config.Config) (*Uploader, error) {
 		o.UsePathStyle = cfg.PathStyle
 	})
 
-	return &Uploader{uploader: manager.NewUploader(client)}, nil
+	uploader := manager.NewUploader(client, func(u *manager.Uploader) {
+		if cfg.Concurrency > 0 {
+			u.Concurrency = cfg.Concurrency
+		}
+		if cfg.PartSize > 0 {
+			u.PartSize = cfg.PartSize
+		}
+	})
+
+	return &Uploader{uploader: uploader}, nil
 }
