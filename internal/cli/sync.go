@@ -13,24 +13,26 @@ import (
 )
 
 type syncFlags struct {
-	profile      string
-	region       string
-	endpointURL  string
-	pathStyle    bool
-	dryRun       bool
-	checksum     bool
-	delete       bool
-	yes          bool
-	noProgress   bool
-	contentType  string
-	storageClass string
-	acl          string
-	concurrency  int
-	partSize     byteSize
-	workers      int
-	metadata     metadataValues
-	include      stringValues
-	exclude      stringValues
+	profile               string
+	region                string
+	endpointURL           string
+	allowInsecureEndpoint bool
+	pathStyle             bool
+	followLinks           bool
+	dryRun                bool
+	checksum              bool
+	delete                bool
+	yes                   bool
+	noProgress            bool
+	contentType           string
+	storageClass          string
+	acl                   string
+	concurrency           int
+	partSize              byteSize
+	workers               int
+	metadata              metadataValues
+	include               stringValues
+	exclude               stringValues
 }
 
 func registerSyncFlags(fs *flag.FlagSet, values *syncFlags) {
@@ -40,7 +42,9 @@ func registerSyncFlags(fs *flag.FlagSet, values *syncFlags) {
 	fs.StringVar(&values.profile, "profile", "", "AWS shared config profile")
 	fs.StringVar(&values.region, "region", "", "AWS region")
 	fs.StringVar(&values.endpointURL, "endpoint-url", "", "custom S3 endpoint URL")
+	fs.BoolVar(&values.allowInsecureEndpoint, "allow-insecure-endpoint", false, "allow http endpoint URLs")
 	fs.BoolVar(&values.pathStyle, "path-style", false, "use path-style addressing")
+	fs.BoolVar(&values.followLinks, "follow-symlinks", false, "follow symlinked files")
 	fs.BoolVar(&values.dryRun, "dry-run", false, "print sync actions without uploading objects")
 	fs.BoolVar(&values.checksum, "checksum", false, "compare same-size objects using local MD5 and remote ETag")
 	fs.BoolVar(&values.delete, "delete", false, "delete remote objects missing from the local plan")
@@ -76,12 +80,13 @@ func (c CLI) runSync(ctx context.Context, args []string) error {
 	}
 
 	cfg := appconfig.Config{
-		Profile:     values.profile,
-		Region:      values.region,
-		EndpointURL: values.endpointURL,
-		PathStyle:   values.pathStyle,
-		Concurrency: values.concurrency,
-		PartSize:    int64(values.partSize),
+		Profile:               values.profile,
+		Region:                values.region,
+		EndpointURL:           values.endpointURL,
+		AllowInsecureEndpoint: values.allowInsecureEndpoint,
+		PathStyle:             values.pathStyle,
+		Concurrency:           values.concurrency,
+		PartSize:              int64(values.partSize),
 	}
 
 	lister, err := s3client.NewLister(ctx, cfg)
@@ -108,6 +113,7 @@ func (c CLI) runSync(ctx context.Context, args []string) error {
 		Source:        fs.Arg(0),
 		Destination:   dest,
 		DryRun:        values.dryRun,
+		FollowLinks:   values.followLinks,
 		Checksum:      values.checksum,
 		Delete:        values.delete,
 		ConfirmDelete: values.yes,

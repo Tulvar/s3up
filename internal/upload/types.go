@@ -30,6 +30,7 @@ type Request struct {
 	Source      string
 	Destination S3URI
 	Recursive   bool
+	FollowLinks bool
 	DryRun      bool
 	Include     []string
 	Exclude     []string

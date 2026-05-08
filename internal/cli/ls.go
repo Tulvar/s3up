@@ -11,13 +11,14 @@ import (
 )
 
 type lsFlags struct {
-	profile     string
-	region      string
-	endpointURL string
-	pathStyle   bool
-	recursive   bool
-	human       bool
-	json        bool
+	profile               string
+	region                string
+	endpointURL           string
+	allowInsecureEndpoint bool
+	pathStyle             bool
+	recursive             bool
+	human                 bool
+	json                  bool
 }
 
 func registerLSFlags(fs *flag.FlagSet, values *lsFlags) {
@@ -27,6 +28,7 @@ func registerLSFlags(fs *flag.FlagSet, values *lsFlags) {
 	fs.StringVar(&values.profile, "profile", "", "AWS shared config profile")
 	fs.StringVar(&values.region, "region", "", "AWS region")
 	fs.StringVar(&values.endpointURL, "endpoint-url", "", "custom S3 endpoint URL")
+	fs.BoolVar(&values.allowInsecureEndpoint, "allow-insecure-endpoint", false, "allow http endpoint URLs")
 	fs.BoolVar(&values.pathStyle, "path-style", false, "use path-style addressing")
 	fs.BoolVar(&values.recursive, "recursive", false, "list objects recursively")
 	fs.BoolVar(&values.human, "human", false, "print object sizes in human-readable units")
@@ -55,10 +57,11 @@ func (c CLI) runLS(ctx context.Context, args []string) error {
 	}
 
 	lister, err := s3client.NewLister(ctx, appconfig.Config{
-		Profile:     values.profile,
-		Region:      values.region,
-		EndpointURL: values.endpointURL,
-		PathStyle:   values.pathStyle,
+		Profile:               values.profile,
+		Region:                values.region,
+		EndpointURL:           values.endpointURL,
+		AllowInsecureEndpoint: values.allowInsecureEndpoint,
+		PathStyle:             values.pathStyle,
 	})
 	if err != nil {
 		return err

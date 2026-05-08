@@ -3,6 +3,7 @@ package s3client
 import (
 	"context"
 	"fmt"
+	"net/url"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
@@ -46,6 +47,10 @@ func NewDeleter(ctx context.Context, cfg config.Config) (*Deleter, error) {
 }
 
 func newClient(ctx context.Context, cfg config.Config) (*s3.Client, error) {
+	if err := validateEndpoint(cfg.EndpointURL, cfg.AllowInsecureEndpoint); err != nil {
+		return nil, err
+	}
+
 	var opts []func(*awsconfig.LoadOptions) error
 	if cfg.Region != "" {
 		opts = append(opts, awsconfig.WithRegion(cfg.Region))
@@ -67,4 +72,18 @@ func newClient(ctx context.Context, cfg config.Config) (*s3.Client, error) {
 	})
 
 	return client, nil
+}
+
+func validateEndpoint(endpoint string, allowInsecure bool) error {
+	if endpoint == "" {
+		return nil
+	}
+	parsed, err := url.Parse(endpoint)
+	if err != nil {
+		return fmt.Errorf("parse endpoint url: %w", err)
+	}
+	if parsed.Scheme == "http" && !allowInsecure {
+		return fmt.Errorf("insecure endpoint %q requires --allow-insecure-endpoint", endpoint)
+	}
+	return nil
 }

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"sync"
+
+	"github.com/tulvar/s3up/internal/limits"
 )
 
 type Service struct {
@@ -23,6 +25,9 @@ func (s Service) Upload(ctx context.Context, req Request) error {
 	}
 	if workers < 0 {
 		return fmt.Errorf("workers must be greater than 0")
+	}
+	if workers > limits.MaxWorkers {
+		return fmt.Errorf("workers must be less than or equal to %d", limits.MaxWorkers)
 	}
 
 	if req.DryRun {

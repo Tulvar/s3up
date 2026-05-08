@@ -291,6 +291,23 @@ func TestServiceSyncDeleteRequiresConfirmation(t *testing.T) {
 	}
 }
 
+func TestServiceSyncDeleteRejectsEmptyDestinationPrefix(t *testing.T) {
+	t.Parallel()
+
+	err := Service{Lister: &recordingLister{}, Uploader: &recordingUploader{}, Deleter: &recordingDeleter{}, Stdout: &bytes.Buffer{}}.Sync(context.Background(), Request{
+		Source:        t.TempDir(),
+		Destination:   list.S3Prefix{Bucket: "bucket"},
+		Delete:        true,
+		ConfirmDelete: true,
+	})
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if !strings.Contains(err.Error(), "non-empty destination prefix") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestServiceSyncWithWorkersProcessesUploadAndDeleteActions(t *testing.T) {
 	t.Parallel()
 
@@ -332,6 +349,19 @@ func TestServiceSyncRejectsNegativeWorkers(t *testing.T) {
 		Source:      t.TempDir(),
 		Destination: list.S3Prefix{Bucket: "bucket"},
 		Workers:     -1,
+	})
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+}
+
+func TestServiceSyncRejectsTooManyWorkers(t *testing.T) {
+	t.Parallel()
+
+	err := Service{Lister: &recordingLister{}, Uploader: &recordingUploader{}, Stdout: &bytes.Buffer{}}.Sync(context.Background(), Request{
+		Source:      t.TempDir(),
+		Destination: list.S3Prefix{Bucket: "bucket"},
+		Workers:     65,
 	})
 	if err == nil {
 		t.Fatalf("expected error")

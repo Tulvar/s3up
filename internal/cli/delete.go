@@ -12,17 +12,18 @@ import (
 )
 
 type deleteFlags struct {
-	profile     string
-	region      string
-	endpointURL string
-	pathStyle   bool
-	recursive   bool
-	dryRun      bool
-	yes         bool
-	noProgress  bool
-	workers     int
-	include     stringValues
-	exclude     stringValues
+	profile               string
+	region                string
+	endpointURL           string
+	allowInsecureEndpoint bool
+	pathStyle             bool
+	recursive             bool
+	dryRun                bool
+	yes                   bool
+	noProgress            bool
+	workers               int
+	include               stringValues
+	exclude               stringValues
 }
 
 func registerDeleteFlags(fs *flag.FlagSet, values *deleteFlags) {
@@ -32,6 +33,7 @@ func registerDeleteFlags(fs *flag.FlagSet, values *deleteFlags) {
 	fs.StringVar(&values.profile, "profile", "", "AWS shared config profile")
 	fs.StringVar(&values.region, "region", "", "AWS region")
 	fs.StringVar(&values.endpointURL, "endpoint-url", "", "custom S3 endpoint URL")
+	fs.BoolVar(&values.allowInsecureEndpoint, "allow-insecure-endpoint", false, "allow http endpoint URLs")
 	fs.BoolVar(&values.pathStyle, "path-style", false, "use path-style addressing")
 	fs.BoolVar(&values.recursive, "recursive", false, "delete objects recursively under the target prefix")
 	fs.BoolVar(&values.dryRun, "dry-run", false, "print delete actions without deleting objects")
@@ -61,10 +63,11 @@ func (c CLI) runDelete(ctx context.Context, args []string) error {
 	}
 
 	cfg := appconfig.Config{
-		Profile:     values.profile,
-		Region:      values.region,
-		EndpointURL: values.endpointURL,
-		PathStyle:   values.pathStyle,
+		Profile:               values.profile,
+		Region:                values.region,
+		EndpointURL:           values.endpointURL,
+		AllowInsecureEndpoint: values.allowInsecureEndpoint,
+		PathStyle:             values.pathStyle,
 	}
 
 	var lister *s3client.Lister

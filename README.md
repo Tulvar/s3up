@@ -33,8 +33,12 @@ Useful flags:
 --profile       AWS shared config profile
 --region        AWS region
 --endpoint-url  custom S3-compatible endpoint
+--allow-insecure-endpoint
+                allow http endpoint URLs
 --path-style    use path-style addressing
 --recursive     upload directories recursively
+--follow-symlinks
+                follow symlinked files instead of skipping them
 --dry-run       print planned uploads without sending objects
 --no-progress   disable upload progress output
 --content-type  content type for uploaded objects
@@ -42,7 +46,7 @@ Useful flags:
 --storage-class S3 storage class
 --acl           S3 canned ACL
 --concurrency   multipart upload concurrency
---workers       number of files to process in parallel
+--workers       number of files to process in parallel, max 64
 --part-size     multipart part size, for example 8MiB
 --include       include files by glob pattern, can be repeated
 --exclude       exclude files by glob pattern, can be repeated
@@ -54,6 +58,8 @@ List flags:
 --profile       AWS shared config profile
 --region        AWS region
 --endpoint-url  custom S3-compatible endpoint
+--allow-insecure-endpoint
+                allow http endpoint URLs
 --path-style    use path-style addressing
 --recursive     list objects recursively
 --human         print object sizes in human-readable units
@@ -66,12 +72,14 @@ Delete flags:
 --profile       AWS shared config profile
 --region        AWS region
 --endpoint-url  custom S3-compatible endpoint
+--allow-insecure-endpoint
+                allow http endpoint URLs
 --path-style    use path-style addressing
 --recursive     delete objects recursively under the target prefix
 --dry-run       print delete actions without deleting objects
 --yes           confirm recursive delete
 --no-progress   disable delete progress output
---workers       number of delete actions to process in parallel
+--workers       number of delete actions to process in parallel, max 64
 --include       include files by glob pattern, can be repeated
 --exclude       exclude files by glob pattern, can be repeated
 ```
@@ -82,7 +90,11 @@ Sync flags:
 --profile       AWS shared config profile
 --region        AWS region
 --endpoint-url  custom S3-compatible endpoint
+--allow-insecure-endpoint
+                allow http endpoint URLs
 --path-style    use path-style addressing
+--follow-symlinks
+                follow symlinked files instead of skipping them
 --dry-run       print sync actions without uploading objects
 --checksum      compare same-size objects using local MD5 and remote ETag
 --delete        delete remote objects missing from the local plan
@@ -93,7 +105,7 @@ Sync flags:
 --storage-class S3 storage class
 --acl           S3 canned ACL
 --concurrency   multipart upload concurrency
---workers       number of sync actions to process in parallel
+--workers       number of sync actions to process in parallel, max 64
 --part-size     multipart part size, for example 8MiB
 --include       include files by glob pattern, can be repeated
 --exclude       exclude files by glob pattern, can be repeated
@@ -102,7 +114,15 @@ Sync flags:
 Sync uploads local files that are missing remotely or have a different size. By
 default it does not delete remote objects. Pass `--delete --dry-run` to preview
 removals, or `--delete --yes` to remove remote objects under the destination
-prefix that are missing from the filtered local plan.
+prefix that are missing from the filtered local plan. `--delete` requires a
+non-empty destination prefix; `s3://bucket` is rejected for delete syncs.
+
+By default upload and sync skip symlinked files. Pass `--follow-symlinks` to
+upload the symlink target under the symlink's relative key.
+
+`--checksum` compares same-size local files with simple MD5-compatible remote
+ETags. Multipart, encrypted, or S3-compatible objects with non-MD5 ETags are
+treated as not comparable and are uploaded again.
 
 When progress output is enabled, upload and sync commands print a final summary
 with uploaded, deleted, skipped, or planned action counts.
@@ -112,6 +132,7 @@ Example for a local S3-compatible service:
 ```sh
 s3up upload ./file.txt s3://bucket/file.txt \
   --endpoint-url http://localhost:9000 \
+  --allow-insecure-endpoint \
   --region us-east-1 \
   --path-style
 ```

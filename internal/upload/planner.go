@@ -11,9 +11,12 @@ import (
 )
 
 func Plan(req Request) ([]PlannedUpload, error) {
-	info, err := os.Stat(req.Source)
+	info, err := statSource(req.Source, req.FollowLinks)
 	if err != nil {
 		return nil, fmt.Errorf("stat source: %w", err)
+	}
+	if info == nil {
+		return nil, nil
 	}
 
 	if !info.IsDir() {
@@ -38,29 +41,78 @@ func Plan(req Request) ([]PlannedUpload, error) {
 	}
 
 	var items []PlannedUpload
-	err = filepath.WalkDir(req.Source, func(localPath string, entry fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if entry.IsDir() {
+	err = walkUploadDir(req.Source, req.Source, req, make(map[string]struct{}), &items)
+	if err != nil {
+		return nil, fmt.Errorf("walk source: %w", err)
+	}
+
+	return items, nil
+}
+
+func statSource(localPath string, followLinks bool) (fs.FileInfo, error) {
+	if followLinks {
+		return os.Stat(localPath)
+	}
+	info, err := os.Lstat(localPath)
+	if err != nil {
+		return nil, err
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return nil, nil
+	}
+	return info, nil
+}
+
+func entryInfo(localPath string, entry fs.DirEntry, followLinks bool) (fs.FileInfo, error) {
+	if entry.Type()&os.ModeSymlink == 0 {
+		return entry.Info()
+	}
+	if !followLinks {
+		return nil, nil
+	}
+	return os.Stat(localPath)
+}
+
+func walkUploadDir(root, dir string, req Request, visited map[string]struct{}, items *[]PlannedUpload) error {
+	realDir, err := filepath.EvalSymlinks(dir)
+	if err == nil {
+		if _, ok := visited[realDir]; ok {
 			return nil
 		}
+		visited[realDir] = struct{}{}
+	}
 
-		info, err := entry.Info()
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		localPath := filepath.Join(dir, entry.Name())
+		info, err := entryInfo(localPath, entry, req.FollowLinks)
 		if err != nil {
 			return err
 		}
+		if info == nil {
+			continue
+		}
+		if info.IsDir() {
+			if err := walkUploadDir(root, localPath, req, visited, items); err != nil {
+				return err
+			}
+			continue
+		}
 
-		rel, err := filepath.Rel(req.Source, localPath)
+		rel, err := filepath.Rel(root, localPath)
 		if err != nil {
 			return err
 		}
 		rel = filepath.ToSlash(rel)
 		if !Selected(rel, req.Include, req.Exclude) {
-			return nil
+			continue
 		}
 
-		items = append(items, PlannedUpload{
+		*items = append(*items, PlannedUpload{
 			LocalPath:    localPath,
 			Bucket:       req.Destination.Bucket,
 			Key:          joinS3Key(req.Destination.Key, rel),
@@ -70,13 +122,9 @@ func Plan(req Request) ([]PlannedUpload, error) {
 			StorageClass: req.Options.StorageClass,
 			ACL:          req.Options.ACL,
 		})
-		return nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("walk source: %w", err)
 	}
 
-	return items, nil
+	return nil
 }
 
 func destinationKeyForFile(destKey, filename string) string {

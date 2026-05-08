@@ -142,3 +142,15 @@ func TestServiceDeleteRejectsNegativeWorkers(t *testing.T) {
 		t.Fatalf("expected error")
 	}
 }
+
+func TestServiceDeleteRejectsTooManyWorkers(t *testing.T) {
+	t.Parallel()
+
+	err := Service{Deleter: &recordingDeleter{}}.Delete(context.Background(), Request{
+		Target:  list.S3Prefix{Bucket: "bucket", Prefix: "site/index.html"},
+		Workers: 65,
+	})
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+}

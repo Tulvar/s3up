@@ -1,10 +1,11 @@
 package config
 
 type Config struct {
-	Profile     string
-	Region      string
-	EndpointURL string
-	PathStyle   bool
-	Concurrency int
-	PartSize    int64
+	Profile               string
+	Region                string
+	EndpointURL           string
+	AllowInsecureEndpoint bool
+	PathStyle             bool
+	Concurrency           int
+	PartSize              int64
 }
