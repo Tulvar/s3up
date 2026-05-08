@@ -41,6 +41,7 @@ func (l *Lister) List(ctx context.Context, input list.ListInput) ([]list.Entry, 
 			entry := list.Entry{
 				Key:  aws.ToString(object.Key),
 				Size: aws.ToInt64(object.Size),
+				ETag: aws.ToString(object.ETag),
 			}
 			if object.LastModified != nil {
 				entry.LastModified = *object.LastModified

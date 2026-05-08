@@ -7,6 +7,9 @@ Small CLI tool for uploading files and directories to S3.
 ```sh
 s3up upload ./file.txt s3://bucket/path/file.txt
 s3up upload ./dist s3://bucket/site/ --recursive
+s3up sync ./dist s3://bucket/site/
+s3up sync ./dist s3://bucket/site/ --dry-run
+s3up sync ./dist s3://bucket/site/ --checksum
 s3up ls s3://bucket/site/
 s3up ls s3://bucket/site/ --recursive
 s3up ls s3://bucket/site/ --human
@@ -42,6 +45,27 @@ List flags:
 --human         print object sizes in human-readable units
 --json          print entries as JSON
 ```
+
+Sync flags:
+
+```sh
+--profile       AWS shared config profile
+--region        AWS region
+--endpoint-url  custom S3-compatible endpoint
+--path-style    use path-style addressing
+--dry-run       print sync actions without uploading objects
+--checksum      compare same-size objects using local MD5 and remote ETag
+--no-progress   disable sync progress output
+--content-type  content type for uploaded objects
+--metadata      object metadata as key=value, can be repeated
+--storage-class S3 storage class
+--acl           S3 canned ACL
+--concurrency   multipart upload concurrency
+--part-size     multipart part size, for example 8MiB
+```
+
+Sync uploads local files that are missing remotely or have a different size. It
+does not delete remote objects.
 
 Example for a local S3-compatible service:
 
