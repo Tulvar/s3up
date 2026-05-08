@@ -25,7 +25,7 @@ func TestPlanUploadsMissingAndChangedObjects(t *testing.T) {
 		{Prefix: "site/assets/", IsDir: true},
 	}
 
-	got, err := Plan(local, remote, false)
+	got, err := Plan(local, remote, Request{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -55,7 +55,7 @@ func TestPlanChecksumUploadsSameSizeDifferentContent(t *testing.T) {
 	got, err := Plan(
 		[]upload.PlannedUpload{{LocalPath: localPath, Key: "site/same-size.txt", Size: 4}},
 		[]list.Entry{{Key: "site/same-size.txt", Size: 4, ETag: quote(md5Hex("aaaa"))}},
-		true,
+		Request{Checksum: true},
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -78,7 +78,7 @@ func TestPlanChecksumSkipsSameMD5(t *testing.T) {
 	got, err := Plan(
 		[]upload.PlannedUpload{{LocalPath: localPath, Key: "site/same.txt", Size: 4}},
 		[]list.Entry{{Key: "site/same.txt", Size: 4, ETag: quote(md5Hex("same"))}},
-		true,
+		Request{Checksum: true},
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -101,13 +101,68 @@ func TestPlanChecksumUploadsWhenETagIsNotComparable(t *testing.T) {
 	got, err := Plan(
 		[]upload.PlannedUpload{{LocalPath: localPath, Key: "site/multipart.txt", Size: 4}},
 		[]list.Entry{{Key: "site/multipart.txt", Size: 4, ETag: quote(md5Hex("same") + "-2")}},
-		true,
+		Request{Checksum: true},
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	if got[0].Kind != ActionUpload || got[0].Reason != "etag not comparable" {
+		t.Fatalf("unexpected action: %+v", got[0])
+	}
+}
+
+func TestPlanDeleteUploadsRemoteOnlyObjects(t *testing.T) {
+	t.Parallel()
+
+	got, err := Plan(
+		[]upload.PlannedUpload{{Key: "site/index.html", Size: 4}},
+		[]list.Entry{
+			{Key: "site/index.html", Size: 4},
+			{Key: "site/old.html", Size: 3},
+		},
+		Request{
+			Delete:      true,
+			Destination: list.S3Prefix{Bucket: "bucket", Prefix: "site/"},
+		},
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(got) != 2 {
+		t.Fatalf("got %d actions, want 2", len(got))
+	}
+	if got[1].Kind != ActionDelete || got[1].Remote.Key != "site/old.html" || got[1].Reason != "missing local file" {
+		t.Fatalf("unexpected delete action: %+v", got[1])
+	}
+}
+
+func TestPlanDeleteRespectsIncludeAndExclude(t *testing.T) {
+	t.Parallel()
+
+	got, err := Plan(
+		nil,
+		[]list.Entry{
+			{Key: "site/old.html", Size: 3},
+			{Key: "site/old.js", Size: 3},
+			{Key: "site/draft.html", Size: 3},
+		},
+		Request{
+			Delete:      true,
+			Destination: list.S3Prefix{Bucket: "bucket", Prefix: "site/"},
+			Include:     []string{"*.html"},
+			Exclude:     []string{"draft.html"},
+		},
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(got) != 1 {
+		t.Fatalf("got actions %+v, want one delete", got)
+	}
+	if got[0].Kind != ActionDelete || got[0].Remote.Key != "site/old.html" {
 		t.Fatalf("unexpected action: %+v", got[0])
 	}
 }

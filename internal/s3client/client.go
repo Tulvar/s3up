@@ -37,6 +37,14 @@ func NewLister(ctx context.Context, cfg config.Config) (*Lister, error) {
 	return &Lister{client: client}, nil
 }
 
+func NewDeleter(ctx context.Context, cfg config.Config) (*Deleter, error) {
+	client, err := newClient(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &Deleter{client: client}, nil
+}
+
 func newClient(ctx context.Context, cfg config.Config) (*s3.Client, error) {
 	var opts []func(*awsconfig.LoadOptions) error
 	if cfg.Region != "" {
