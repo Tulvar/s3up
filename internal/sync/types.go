@@ -1,0 +1,29 @@
+package sync
+
+import (
+	"github.com/tulvar/s3up/internal/list"
+	"github.com/tulvar/s3up/internal/upload"
+)
+
+type Request struct {
+	Source      string
+	Destination list.S3Prefix
+	DryRun      bool
+	Checksum    bool
+	Options     upload.Options
+	Progress    bool
+}
+
+type ActionKind string
+
+const (
+	ActionUpload ActionKind = "upload"
+	ActionSkip   ActionKind = "skip"
+)
+
+type Action struct {
+	Kind   ActionKind
+	Reason string
+	Local  upload.PlannedUpload
+	Remote list.Entry
+}

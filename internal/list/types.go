@@ -51,6 +51,7 @@ type Entry struct {
 	Prefix       string
 	IsDir        bool
 	Size         int64
+	ETag         string
 	LastModified time.Time
 }
 
