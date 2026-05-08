@@ -1,0 +1,53 @@
+package cli
+
+import (
+	"context"
+	"flag"
+	"fmt"
+	"io"
+
+	"github.com/tulvar/s3up/pkg/version"
+)
+
+type CLI struct {
+	stdout io.Writer
+	stderr io.Writer
+}
+
+func New(stdout, stderr io.Writer) CLI {
+	return CLI{stdout: stdout, stderr: stderr}
+}
+
+func (c CLI) Run(ctx context.Context, args []string) error {
+	if len(args) == 0 {
+		c.printUsage()
+		return nil
+	}
+
+	switch args[0] {
+	case "upload", "up":
+		return c.runUpload(ctx, args[1:])
+	case "version":
+		fmt.Fprintln(c.stdout, version.Version)
+		return nil
+	case "help", "-h", "--help":
+		c.printUsage()
+		return nil
+	default:
+		return fmt.Errorf("unknown command %q", args[0])
+	}
+}
+
+func (c CLI) printUsage() {
+	fmt.Fprintln(c.stdout, "s3up - small S3 upload CLI")
+	fmt.Fprintln(c.stdout)
+	fmt.Fprintln(c.stdout, "Usage:")
+	fmt.Fprintln(c.stdout, "  s3up upload [flags] <local-path> <s3://bucket/key>")
+	fmt.Fprintln(c.stdout, "  s3up version")
+	fmt.Fprintln(c.stdout)
+	fmt.Fprintln(c.stdout, "Upload flags:")
+	fs := flag.NewFlagSet("upload", flag.ContinueOnError)
+	registerUploadFlags(fs, nil)
+	fs.SetOutput(c.stdout)
+	fs.PrintDefaults()
+}
