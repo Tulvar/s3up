@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
 	"strings"
 
 	"github.com/tulvar/s3up/internal/list"
@@ -158,13 +157,5 @@ func fileMD5(path string) (string, error) {
 }
 
 func relativeRemoteKey(key, prefix string) string {
-	key = strings.TrimLeft(path.Clean("/"+key), "/")
-	prefix = strings.TrimLeft(path.Clean("/"+prefix), "/")
-	if prefix == "." {
-		prefix = ""
-	}
-	if prefix != "" && !strings.HasSuffix(prefix, "/") {
-		prefix += "/"
-	}
-	return strings.TrimPrefix(key, prefix)
+	return upload.RelativeKey(key, prefix)
 }

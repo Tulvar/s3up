@@ -125,6 +125,18 @@ func Selected(rel string, include, exclude []string) bool {
 	return !matchesAny(rel, exclude)
 }
 
+func RelativeKey(key, prefix string) string {
+	key = strings.TrimLeft(path.Clean("/"+key), "/")
+	prefix = strings.TrimLeft(path.Clean("/"+prefix), "/")
+	if prefix == "." {
+		prefix = ""
+	}
+	if prefix != "" && !strings.HasSuffix(prefix, "/") {
+		prefix += "/"
+	}
+	return strings.TrimPrefix(key, prefix)
+}
+
 func matchesAny(rel string, patterns []string) bool {
 	rel = filepath.ToSlash(rel)
 	base := path.Base(rel)

@@ -29,6 +29,8 @@ func (c CLI) Run(ctx context.Context, args []string) error {
 		return c.runUpload(ctx, args[1:])
 	case "sync":
 		return c.runSync(ctx, args[1:])
+	case "delete", "rm":
+		return c.runDelete(ctx, args[1:])
 	case "ls", "list":
 		return c.runLS(ctx, args[1:])
 	case "version":
@@ -48,6 +50,7 @@ func (c CLI) printUsage() {
 	fmt.Fprintln(c.stdout, "Usage:")
 	fmt.Fprintln(c.stdout, "  s3up upload [flags] <local-path> <s3://bucket/key>")
 	fmt.Fprintln(c.stdout, "  s3up sync [flags] <local-path> <s3://bucket/prefix>")
+	fmt.Fprintln(c.stdout, "  s3up delete [flags] <s3://bucket/key-or-prefix>")
 	fmt.Fprintln(c.stdout, "  s3up ls [flags] <s3://bucket/prefix>")
 	fmt.Fprintln(c.stdout, "  s3up version")
 	fmt.Fprintln(c.stdout)
@@ -68,4 +71,10 @@ func (c CLI) printUsage() {
 	registerSyncFlags(syncFlags, nil)
 	syncFlags.SetOutput(c.stdout)
 	syncFlags.PrintDefaults()
+	fmt.Fprintln(c.stdout)
+	fmt.Fprintln(c.stdout, "Delete flags:")
+	deleteFlags := flag.NewFlagSet("delete", flag.ContinueOnError)
+	registerDeleteFlags(deleteFlags, nil)
+	deleteFlags.SetOutput(c.stdout)
+	deleteFlags.PrintDefaults()
 }

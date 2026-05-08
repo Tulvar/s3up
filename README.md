@@ -18,6 +18,9 @@ s3up sync ./dist s3://bucket/site/ --delete --dry-run
 s3up sync ./dist s3://bucket/site/ --exclude "*.map"
 s3up sync ./dist s3://bucket/site/ --include "*.html"
 s3up sync ./dist s3://bucket/site/ --workers 8
+s3up delete s3://bucket/site/old.js
+s3up delete s3://bucket/site/ --recursive --dry-run
+s3up delete s3://bucket/site/ --recursive --yes --exclude "*.map"
 s3up ls s3://bucket/site/
 s3up ls s3://bucket/site/ --recursive
 s3up ls s3://bucket/site/ --human
@@ -55,6 +58,22 @@ List flags:
 --recursive     list objects recursively
 --human         print object sizes in human-readable units
 --json          print entries as JSON
+```
+
+Delete flags:
+
+```sh
+--profile       AWS shared config profile
+--region        AWS region
+--endpoint-url  custom S3-compatible endpoint
+--path-style    use path-style addressing
+--recursive     delete objects recursively under the target prefix
+--dry-run       print delete actions without deleting objects
+--yes           confirm recursive delete
+--no-progress   disable delete progress output
+--workers       number of delete actions to process in parallel
+--include       include files by glob pattern, can be repeated
+--exclude       exclude files by glob pattern, can be repeated
 ```
 
 Sync flags:
