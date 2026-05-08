@@ -94,6 +94,8 @@ func BuildLocalPlan(req Request) ([]upload.PlannedUpload, error) {
 			Key:    req.Destination.Prefix,
 		},
 		Recursive: info.IsDir(),
+		Include:   req.Include,
+		Exclude:   req.Exclude,
 		Options:   req.Options,
 	})
 }

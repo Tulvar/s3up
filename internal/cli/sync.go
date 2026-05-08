@@ -26,6 +26,8 @@ type syncFlags struct {
 	concurrency  int
 	partSize     byteSize
 	metadata     metadataValues
+	include      stringValues
+	exclude      stringValues
 }
 
 func registerSyncFlags(fs *flag.FlagSet, values *syncFlags) {
@@ -45,6 +47,8 @@ func registerSyncFlags(fs *flag.FlagSet, values *syncFlags) {
 	fs.IntVar(&values.concurrency, "concurrency", 0, "multipart upload concurrency")
 	fs.Var(&values.partSize, "part-size", "multipart part size, for example 8MiB or 8388608")
 	fs.Var(&values.metadata, "metadata", "object metadata entry in key=value form; can be repeated")
+	fs.Var(&values.include, "include", "include files by glob pattern; can be repeated")
+	fs.Var(&values.exclude, "exclude", "exclude files by glob pattern; can be repeated")
 }
 
 func (c CLI) runSync(ctx context.Context, args []string) error {
@@ -92,6 +96,8 @@ func (c CLI) runSync(ctx context.Context, args []string) error {
 		Destination: dest,
 		DryRun:      values.dryRun,
 		Checksum:    values.checksum,
+		Include:     values.include.Values(),
+		Exclude:     values.exclude.Values(),
 		Options: upload.Options{
 			ContentType:  values.contentType,
 			Metadata:     values.metadata.Map(),

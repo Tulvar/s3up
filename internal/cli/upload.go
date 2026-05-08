@@ -26,6 +26,8 @@ type uploadFlags struct {
 	concurrency  int
 	partSize     byteSize
 	metadata     metadataValues
+	include      stringValues
+	exclude      stringValues
 }
 
 func registerUploadFlags(fs *flag.FlagSet, values *uploadFlags) {
@@ -45,6 +47,8 @@ func registerUploadFlags(fs *flag.FlagSet, values *uploadFlags) {
 	fs.IntVar(&values.concurrency, "concurrency", 0, "multipart upload concurrency")
 	fs.Var(&values.partSize, "part-size", "multipart part size, for example 8MiB or 8388608")
 	fs.Var(&values.metadata, "metadata", "object metadata entry in key=value form; can be repeated")
+	fs.Var(&values.include, "include", "include files by glob pattern; can be repeated")
+	fs.Var(&values.exclude, "exclude", "exclude files by glob pattern; can be repeated")
 }
 
 func (c CLI) runUpload(ctx context.Context, args []string) error {
@@ -70,6 +74,8 @@ func (c CLI) runUpload(ctx context.Context, args []string) error {
 		Destination: dest,
 		Recursive:   values.recursive,
 		DryRun:      values.dryRun,
+		Include:     values.include.Values(),
+		Exclude:     values.exclude.Values(),
 		Options: upload.Options{
 			ContentType:  values.contentType,
 			Metadata:     values.metadata.Map(),
@@ -142,6 +148,33 @@ func (s *byteSize) String() string {
 		return ""
 	}
 	return strconv.FormatInt(int64(*s), 10)
+}
+
+type stringValues []string
+
+func (v *stringValues) String() string {
+	if v == nil || len(*v) == 0 {
+		return ""
+	}
+	return strings.Join(*v, ",")
+}
+
+func (v *stringValues) Set(raw string) error {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return fmt.Errorf("value cannot be empty")
+	}
+	*v = append(*v, raw)
+	return nil
+}
+
+func (v stringValues) Values() []string {
+	if len(v) == 0 {
+		return nil
+	}
+	out := make([]string, len(v))
+	copy(out, v)
+	return out
 }
 
 func (s *byteSize) Set(raw string) error {

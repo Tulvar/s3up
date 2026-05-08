@@ -93,6 +93,54 @@ func TestServiceSyncDryRunDoesNotRequireUploader(t *testing.T) {
 	}
 }
 
+func TestServiceSyncPassesExcludeToLocalPlan(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "index.html"), "home")
+	writeFile(t, filepath.Join(dir, "index.html.map"), "map")
+
+	lister := &recordingLister{}
+	uploader := &recordingUploader{}
+
+	err := Service{Lister: lister, Uploader: uploader, Stdout: &bytes.Buffer{}}.Sync(context.Background(), Request{
+		Source:      dir,
+		Destination: list.S3Prefix{Bucket: "bucket", Prefix: "site/"},
+		Exclude:     []string{"*.map"},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(uploader.inputs) != 1 || uploader.inputs[0].Key != "site/index.html" {
+		t.Fatalf("unexpected uploads: %+v", uploader.inputs)
+	}
+}
+
+func TestServiceSyncPassesIncludeToLocalPlan(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "index.html"), "home")
+	writeFile(t, filepath.Join(dir, "app.js"), "js")
+
+	lister := &recordingLister{}
+	uploader := &recordingUploader{}
+
+	err := Service{Lister: lister, Uploader: uploader, Stdout: &bytes.Buffer{}}.Sync(context.Background(), Request{
+		Source:      dir,
+		Destination: list.S3Prefix{Bucket: "bucket", Prefix: "site/"},
+		Include:     []string{"*.html"},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(uploader.inputs) != 1 || uploader.inputs[0].Key != "site/index.html" {
+		t.Fatalf("unexpected uploads: %+v", uploader.inputs)
+	}
+}
+
 func TestServiceSyncRequiresLister(t *testing.T) {
 	t.Parallel()
 
