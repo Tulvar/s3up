@@ -46,4 +46,7 @@ func TestUsageMentionsSync(t *testing.T) {
 	if !strings.Contains(stdout.String(), "-include") {
 		t.Fatalf("usage output does not mention include: %q", stdout.String())
 	}
+	if !strings.Contains(stdout.String(), "-workers") {
+		t.Fatalf("usage output does not mention workers: %q", stdout.String())
+	}
 }

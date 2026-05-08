@@ -35,6 +35,7 @@ type Request struct {
 	Exclude     []string
 	Options     Options
 	Progress    bool
+	Workers     int
 }
 
 type Options struct {

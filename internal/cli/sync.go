@@ -27,6 +27,7 @@ type syncFlags struct {
 	acl          string
 	concurrency  int
 	partSize     byteSize
+	workers      int
 	metadata     metadataValues
 	include      stringValues
 	exclude      stringValues
@@ -49,6 +50,7 @@ func registerSyncFlags(fs *flag.FlagSet, values *syncFlags) {
 	fs.StringVar(&values.storageClass, "storage-class", "", "S3 storage class")
 	fs.StringVar(&values.acl, "acl", "", "S3 canned ACL")
 	fs.IntVar(&values.concurrency, "concurrency", 0, "multipart upload concurrency")
+	fs.IntVar(&values.workers, "workers", 1, "number of sync actions to process in parallel")
 	fs.Var(&values.partSize, "part-size", "multipart part size, for example 8MiB or 8388608")
 	fs.Var(&values.metadata, "metadata", "object metadata entry in key=value form; can be repeated")
 	fs.Var(&values.include, "include", "include files by glob pattern; can be repeated")
@@ -118,5 +120,6 @@ func (c CLI) runSync(ctx context.Context, args []string) error {
 			ACL:          values.acl,
 		},
 		Progress: !values.noProgress,
+		Workers:  values.workers,
 	})
 }
