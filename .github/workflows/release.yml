@@ -1,0 +1,77 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run tests
+        run: go test ./...
+
+      - name: Build archives
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p dist
+
+          build() {
+            local goos="$1"
+            local goarch="$2"
+            local name="$3"
+            local dir="dist/s3up_${name}"
+
+            mkdir -p "$dir"
+            GOOS="$goos" GOARCH="$goarch" CGO_ENABLED=0 \
+              go build \
+                -trimpath \
+                -ldflags "-s -w -X github.com/tulvar/s3up/pkg/version.Version=${VERSION}" \
+                -o "$dir/s3up" \
+                ./cmd/s3up
+
+            cp README.md LICENSE "$dir/"
+            tar -C dist -czf "dist/s3up_${name}.tar.gz" "s3up_${name}"
+            rm -rf "$dir"
+          }
+
+          build linux amd64 Linux_x86_64
+          build linux arm64 Linux_arm64
+          build darwin amd64 Darwin_x86_64
+          build darwin arm64 Darwin_arm64
+
+          (cd dist && sha256sum *.tar.gz > checksums.txt)
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          gh release create "$TAG" dist/* \
+            --title "$TAG" \
+            --generate-notes \
+            --verify-tag
