@@ -27,6 +27,8 @@ func (c CLI) Run(ctx context.Context, args []string) error {
 	switch args[0] {
 	case "upload", "up":
 		return c.runUpload(ctx, args[1:])
+	case "ls", "list":
+		return c.runLS(ctx, args[1:])
 	case "version":
 		fmt.Fprintln(c.stdout, version.Version)
 		return nil
@@ -43,6 +45,7 @@ func (c CLI) printUsage() {
 	fmt.Fprintln(c.stdout)
 	fmt.Fprintln(c.stdout, "Usage:")
 	fmt.Fprintln(c.stdout, "  s3up upload [flags] <local-path> <s3://bucket/key>")
+	fmt.Fprintln(c.stdout, "  s3up ls [flags] <s3://bucket/prefix>")
 	fmt.Fprintln(c.stdout, "  s3up version")
 	fmt.Fprintln(c.stdout)
 	fmt.Fprintln(c.stdout, "Upload flags:")
@@ -50,4 +53,10 @@ func (c CLI) printUsage() {
 	registerUploadFlags(fs, nil)
 	fs.SetOutput(c.stdout)
 	fs.PrintDefaults()
+	fmt.Fprintln(c.stdout)
+	fmt.Fprintln(c.stdout, "LS flags:")
+	lsFlags := flag.NewFlagSet("ls", flag.ContinueOnError)
+	registerLSFlags(lsFlags, nil)
+	lsFlags.SetOutput(c.stdout)
+	lsFlags.PrintDefaults()
 }

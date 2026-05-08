@@ -15,6 +15,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/tulvar/s3up/internal/config"
+	"github.com/tulvar/s3up/internal/list"
 	"github.com/tulvar/s3up/internal/s3client"
 	"github.com/tulvar/s3up/internal/upload"
 )
@@ -115,6 +116,28 @@ func TestUploadToMinIO(t *testing.T) {
 	if out.String() == "" {
 		t.Fatalf("expected progress output")
 	}
+
+	lister, err := s3client.NewLister(ctx, config.Config{
+		Region:      region,
+		EndpointURL: endpoint,
+		PathStyle:   true,
+	})
+	if err != nil {
+		t.Fatalf("new lister: %v", err)
+	}
+
+	entries, err := lister.List(ctx, list.ListInput{
+		Bucket:    bucket,
+		Prefix:    "site/",
+		Recursive: true,
+	})
+	if err != nil {
+		t.Fatalf("list objects: %v", err)
+	}
+
+	if !hasObject(entries, key) {
+		t.Fatalf("list entries do not include %q: %+v", key, entries)
+	}
 }
 
 func waitForS3(t *testing.T, ctx context.Context, client *s3.Client) {
@@ -143,4 +166,13 @@ func envOrDefault(key, fallback string) string {
 		return fallback
 	}
 	return value
+}
+
+func hasObject(entries []list.Entry, key string) bool {
+	for _, entry := range entries {
+		if !entry.IsDir && entry.Key == key {
+			return true
+		}
+	}
+	return false
 }
