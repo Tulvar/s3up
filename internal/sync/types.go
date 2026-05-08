@@ -1,8 +1,7 @@
 package sync
 
 import (
-	"context"
-
+	deletepkg "github.com/tulvar/s3up/internal/delete"
 	"github.com/tulvar/s3up/internal/list"
 	"github.com/tulvar/s3up/internal/upload"
 )
@@ -36,11 +35,5 @@ type Action struct {
 	Remote list.Entry
 }
 
-type DeleteInput struct {
-	Bucket string
-	Key    string
-}
-
-type ObjectDeleter interface {
-	Delete(ctx context.Context, input DeleteInput) error
-}
+type DeleteInput = deletepkg.DeleteInput
+type ObjectDeleter = deletepkg.ObjectDeleter

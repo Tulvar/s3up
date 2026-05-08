@@ -16,6 +16,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/tulvar/s3up/internal/config"
+	deletepkg "github.com/tulvar/s3up/internal/delete"
 	"github.com/tulvar/s3up/internal/list"
 	"github.com/tulvar/s3up/internal/s3client"
 	syncer "github.com/tulvar/s3up/internal/sync"
@@ -296,6 +297,104 @@ func TestSyncToMinIOUploadsOnlyChangedAndNewObjects(t *testing.T) {
 	}
 	if !objectExists(t, ctx, client, bucket, "site/protected.map") {
 		t.Fatalf("delete sync should respect exclude filters")
+	}
+}
+
+func TestDeleteFromMinIO(t *testing.T) {
+	endpoint := envOrDefault("S3UP_INTEGRATION_ENDPOINT", "http://localhost:9000")
+	accessKey := envOrDefault("S3UP_INTEGRATION_ACCESS_KEY_ID", "minioadmin")
+	secretKey := envOrDefault("S3UP_INTEGRATION_SECRET_ACCESS_KEY", "minioadmin")
+	region := envOrDefault("S3UP_INTEGRATION_REGION", "us-east-1")
+
+	t.Setenv("AWS_ACCESS_KEY_ID", accessKey)
+	t.Setenv("AWS_SECRET_ACCESS_KEY", secretKey)
+	t.Setenv("AWS_REGION", region)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	cfg := config.Config{
+		Region:      region,
+		EndpointURL: endpoint,
+		PathStyle:   true,
+	}
+	client := s3.NewFromConfig(aws.Config{
+		Region:      region,
+		Credentials: credentials.NewStaticCredentialsProvider(accessKey, secretKey, ""),
+	}, func(o *s3.Options) {
+		o.BaseEndpoint = aws.String(endpoint)
+		o.UsePathStyle = true
+	})
+
+	waitForS3(t, ctx, client)
+
+	bucket := fmt.Sprintf("s3up-delete-it-%d", time.Now().UnixNano())
+	_, err := client.CreateBucket(ctx, &s3.CreateBucketInput{
+		Bucket: aws.String(bucket),
+	})
+	if err != nil {
+		t.Fatalf("create bucket: %v", err)
+	}
+	t.Cleanup(func() {
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cleanupCancel()
+
+		for _, key := range []string{"site/a.txt", "site/b.txt", "site/protected.map"} {
+			_, _ = client.DeleteObject(cleanupCtx, &s3.DeleteObjectInput{
+				Bucket: aws.String(bucket),
+				Key:    aws.String(key),
+			})
+		}
+		_, _ = client.DeleteBucket(cleanupCtx, &s3.DeleteBucketInput{
+			Bucket: aws.String(bucket),
+		})
+	})
+
+	putObject(t, ctx, client, bucket, "site/a.txt", "a")
+	putObject(t, ctx, client, bucket, "site/b.txt", "b")
+	putObject(t, ctx, client, bucket, "site/protected.map", "map")
+
+	lister, err := s3client.NewLister(ctx, cfg)
+	if err != nil {
+		t.Fatalf("new lister: %v", err)
+	}
+	deleter, err := s3client.NewDeleter(ctx, cfg)
+	if err != nil {
+		t.Fatalf("new deleter: %v", err)
+	}
+
+	var out bytes.Buffer
+	err = deletepkg.Service{Lister: lister, Stdout: &out}.Delete(ctx, deletepkg.Request{
+		Target:    list.S3Prefix{Bucket: bucket, Prefix: "site/"},
+		Recursive: true,
+		DryRun:    true,
+		Exclude:   []string{"*.map"},
+		Progress:  true,
+	})
+	if err != nil {
+		t.Fatalf("dry-run delete: %v", err)
+	}
+	if !objectExists(t, ctx, client, bucket, "site/a.txt") || !objectExists(t, ctx, client, bucket, "site/b.txt") {
+		t.Fatalf("dry-run delete removed objects")
+	}
+
+	out.Reset()
+	err = deletepkg.Service{Lister: lister, Deleter: deleter, Stdout: &out}.Delete(ctx, deletepkg.Request{
+		Target:        list.S3Prefix{Bucket: bucket, Prefix: "site/"},
+		Recursive:     true,
+		ConfirmDelete: true,
+		Exclude:       []string{"*.map"},
+		Progress:      true,
+		Workers:       2,
+	})
+	if err != nil {
+		t.Fatalf("recursive delete: %v", err)
+	}
+	if objectExists(t, ctx, client, bucket, "site/a.txt") || objectExists(t, ctx, client, bucket, "site/b.txt") {
+		t.Fatalf("recursive delete left matching objects")
+	}
+	if !objectExists(t, ctx, client, bucket, "site/protected.map") {
+		t.Fatalf("recursive delete should respect exclude filters")
 	}
 }
 
