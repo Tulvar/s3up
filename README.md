@@ -7,9 +7,13 @@ Small CLI tool for uploading files and directories to S3.
 ```sh
 s3up upload ./file.txt s3://bucket/path/file.txt
 s3up upload ./dist s3://bucket/site/ --recursive
+s3up upload ./dist s3://bucket/site/ --recursive --exclude "*.map"
+s3up upload ./dist s3://bucket/site/ --recursive --include "*.html"
 s3up sync ./dist s3://bucket/site/
 s3up sync ./dist s3://bucket/site/ --dry-run
 s3up sync ./dist s3://bucket/site/ --checksum
+s3up sync ./dist s3://bucket/site/ --exclude "*.map"
+s3up sync ./dist s3://bucket/site/ --include "*.html"
 s3up ls s3://bucket/site/
 s3up ls s3://bucket/site/ --recursive
 s3up ls s3://bucket/site/ --human
@@ -32,6 +36,8 @@ Useful flags:
 --acl           S3 canned ACL
 --concurrency   multipart upload concurrency
 --part-size     multipart part size, for example 8MiB
+--include       include files by glob pattern, can be repeated
+--exclude       exclude files by glob pattern, can be repeated
 ```
 
 List flags:
@@ -62,6 +68,8 @@ Sync flags:
 --acl           S3 canned ACL
 --concurrency   multipart upload concurrency
 --part-size     multipart part size, for example 8MiB
+--include       include files by glob pattern, can be repeated
+--exclude       exclude files by glob pattern, can be repeated
 ```
 
 Sync uploads local files that are missing remotely or have a different size. It

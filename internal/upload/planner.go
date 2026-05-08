@@ -17,6 +17,9 @@ func Plan(req Request) ([]PlannedUpload, error) {
 	}
 
 	if !info.IsDir() {
+		if !selected(filepath.Base(req.Source), req.Include, req.Exclude) {
+			return nil, nil
+		}
 		key := destinationKeyForFile(req.Destination.Key, filepath.Base(req.Source))
 		return []PlannedUpload{{
 			LocalPath:    req.Source,
@@ -52,11 +55,15 @@ func Plan(req Request) ([]PlannedUpload, error) {
 		if err != nil {
 			return err
 		}
+		rel = filepath.ToSlash(rel)
+		if !selected(rel, req.Include, req.Exclude) {
+			return nil
+		}
 
 		items = append(items, PlannedUpload{
 			LocalPath:    localPath,
 			Bucket:       req.Destination.Bucket,
-			Key:          joinS3Key(req.Destination.Key, filepath.ToSlash(rel)),
+			Key:          joinS3Key(req.Destination.Key, rel),
 			Size:         info.Size(),
 			ContentType:  contentTypeFor(localPath, req.Options.ContentType),
 			Metadata:     cloneMetadata(req.Options.Metadata),
@@ -109,4 +116,32 @@ func cloneMetadata(metadata map[string]string) map[string]string {
 		cloned[key] = value
 	}
 	return cloned
+}
+
+func selected(rel string, include, exclude []string) bool {
+	if len(include) > 0 && !matchesAny(rel, include) {
+		return false
+	}
+	return !matchesAny(rel, exclude)
+}
+
+func matchesAny(rel string, patterns []string) bool {
+	rel = filepath.ToSlash(rel)
+	base := path.Base(rel)
+	for _, pattern := range patterns {
+		pattern = filepath.ToSlash(strings.TrimSpace(pattern))
+		if pattern == "" {
+			continue
+		}
+
+		target := rel
+		if !strings.Contains(pattern, "/") {
+			target = base
+		}
+		matched, err := path.Match(pattern, target)
+		if err == nil && matched {
+			return true
+		}
+	}
+	return false
 }

@@ -10,6 +10,8 @@ type Request struct {
 	Destination list.S3Prefix
 	DryRun      bool
 	Checksum    bool
+	Include     []string
+	Exclude     []string
 	Options     upload.Options
 	Progress    bool
 }

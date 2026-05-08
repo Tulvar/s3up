@@ -181,7 +181,7 @@ func TestSyncToMinIOUploadsOnlyChangedAndNewObjects(t *testing.T) {
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cleanupCancel()
 
-		for _, key := range []string{"site/same.txt", "site/changed.txt", "site/new.txt"} {
+		for _, key := range []string{"site/same.txt", "site/changed.txt", "site/new.txt", "site/ignored.map"} {
 			_, _ = client.DeleteObject(cleanupCtx, &s3.DeleteObjectInput{
 				Bucket: aws.String(bucket),
 				Key:    aws.String(key),
@@ -199,6 +199,7 @@ func TestSyncToMinIOUploadsOnlyChangedAndNewObjects(t *testing.T) {
 	writeLocalFile(t, filepath.Join(dir, "same.txt"), "DIFF")
 	writeLocalFile(t, filepath.Join(dir, "changed.txt"), "changed")
 	writeLocalFile(t, filepath.Join(dir, "new.txt"), "new")
+	writeLocalFile(t, filepath.Join(dir, "ignored.map"), "ignored")
 
 	lister, err := s3client.NewLister(ctx, cfg)
 	if err != nil {
@@ -213,6 +214,8 @@ func TestSyncToMinIOUploadsOnlyChangedAndNewObjects(t *testing.T) {
 	err = syncer.Service{Lister: lister, Uploader: uploader, Stdout: &out}.Sync(ctx, syncer.Request{
 		Source:      dir,
 		Destination: list.S3Prefix{Bucket: bucket, Prefix: "site/"},
+		Include:     []string{"*.txt"},
+		Exclude:     []string{"*.map"},
 		Progress:    true,
 	})
 	if err != nil {
@@ -228,12 +231,17 @@ func TestSyncToMinIOUploadsOnlyChangedAndNewObjects(t *testing.T) {
 	if body := getObjectBody(t, ctx, client, bucket, "site/new.txt"); body != "new" {
 		t.Fatalf("new object body = %q", body)
 	}
+	if objectExists(t, ctx, client, bucket, "site/ignored.map") {
+		t.Fatalf("excluded object was uploaded")
+	}
 
 	out.Reset()
 	err = syncer.Service{Lister: lister, Uploader: uploader, Stdout: &out}.Sync(ctx, syncer.Request{
 		Source:      dir,
 		Destination: list.S3Prefix{Bucket: bucket, Prefix: "site/"},
 		Checksum:    true,
+		Include:     []string{"*.txt"},
+		Exclude:     []string{"*.map"},
 		Progress:    true,
 	})
 	if err != nil {
@@ -295,6 +303,16 @@ func getObjectBody(t *testing.T, ctx context.Context, client *s3.Client, bucket,
 		t.Fatalf("read object %s: %v", key, err)
 	}
 	return string(body)
+}
+
+func objectExists(t *testing.T, ctx context.Context, client *s3.Client, bucket, key string) bool {
+	t.Helper()
+
+	_, err := client.HeadObject(ctx, &s3.HeadObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(key),
+	})
+	return err == nil
 }
 
 func writeLocalFile(t *testing.T, path, body string) {

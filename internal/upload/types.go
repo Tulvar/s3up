@@ -31,6 +31,8 @@ type Request struct {
 	Destination S3URI
 	Recursive   bool
 	DryRun      bool
+	Include     []string
+	Exclude     []string
 	Options     Options
 	Progress    bool
 }

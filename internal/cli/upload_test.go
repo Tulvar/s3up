@@ -117,3 +117,34 @@ func TestParseByteSizeRejectsInvalidValue(t *testing.T) {
 		t.Fatalf("expected error")
 	}
 }
+
+func TestStringValues(t *testing.T) {
+	t.Parallel()
+
+	var values stringValues
+	if err := values.Set("*.map"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := values.Set("assets/*"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	got := values.Values()
+	if len(got) != 2 || got[0] != "*.map" || got[1] != "assets/*" {
+		t.Fatalf("unexpected values: %+v", got)
+	}
+
+	got[0] = "changed"
+	if values[0] != "*.map" {
+		t.Fatalf("values were not cloned")
+	}
+}
+
+func TestStringValuesRejectEmpty(t *testing.T) {
+	t.Parallel()
+
+	var values stringValues
+	if err := values.Set(" "); err == nil {
+		t.Fatalf("expected error")
+	}
+}
