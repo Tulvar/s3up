@@ -54,4 +54,26 @@ s3up upload ./dist s3://bucket/site/ \
 
 ```sh
 go test ./...
+go build ./cmd/s3up
+```
+
+Or use Make:
+
+```sh
+make test
+make build
+```
+
+## Integration Tests
+
+Integration tests use MinIO as an S3-compatible endpoint.
+
+```sh
+make integration
+```
+
+To stop and remove the MinIO volume:
+
+```sh
+make minio-down
 ```
