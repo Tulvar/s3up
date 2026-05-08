@@ -6,13 +6,14 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"strings"
 
 	"github.com/tulvar/s3up/internal/list"
 	"github.com/tulvar/s3up/internal/upload"
 )
 
-func Plan(local []upload.PlannedUpload, remote []list.Entry, checksum bool) ([]Action, error) {
+func Plan(local []upload.PlannedUpload, remote []list.Entry, req Request) ([]Action, error) {
 	remoteByKey := make(map[string]list.Entry, len(remote))
 	for _, entry := range remote {
 		if entry.IsDir {
@@ -22,7 +23,9 @@ func Plan(local []upload.PlannedUpload, remote []list.Entry, checksum bool) ([]A
 	}
 
 	actions := make([]Action, 0, len(local))
+	localKeys := make(map[string]struct{}, len(local))
 	for _, item := range local {
+		localKeys[item.Key] = struct{}{}
 		remoteEntry, ok := remoteByKey[item.Key]
 		if !ok {
 			actions = append(actions, Action{
@@ -43,7 +46,7 @@ func Plan(local []upload.PlannedUpload, remote []list.Entry, checksum bool) ([]A
 			continue
 		}
 
-		if checksum {
+		if req.Checksum {
 			remoteMD5, ok := comparableETag(remoteEntry.ETag)
 			if !ok {
 				actions = append(actions, Action{
@@ -72,10 +75,30 @@ func Plan(local []upload.PlannedUpload, remote []list.Entry, checksum bool) ([]A
 
 		actions = append(actions, Action{
 			Kind:   ActionSkip,
-			Reason: skipReason(checksum),
+			Reason: skipReason(req.Checksum),
 			Local:  item,
 			Remote: remoteEntry,
 		})
+	}
+
+	if req.Delete {
+		for _, entry := range remote {
+			if entry.IsDir {
+				continue
+			}
+			if _, ok := localKeys[entry.Key]; ok {
+				continue
+			}
+			rel := relativeRemoteKey(entry.Key, req.Destination.Prefix)
+			if !upload.Selected(rel, req.Include, req.Exclude) {
+				continue
+			}
+			actions = append(actions, Action{
+				Kind:   ActionDelete,
+				Reason: "missing local file",
+				Remote: entry,
+			})
+		}
 	}
 
 	return actions, nil
@@ -132,4 +155,16 @@ func fileMD5(path string) (string, error) {
 		return "", fmt.Errorf("read for checksum: %w", err)
 	}
 	return hex.EncodeToString(hash.Sum(nil)), nil
+}
+
+func relativeRemoteKey(key, prefix string) string {
+	key = strings.TrimLeft(path.Clean("/"+key), "/")
+	prefix = strings.TrimLeft(path.Clean("/"+prefix), "/")
+	if prefix == "." {
+		prefix = ""
+	}
+	if prefix != "" && !strings.HasSuffix(prefix, "/") {
+		prefix += "/"
+	}
+	return strings.TrimPrefix(key, prefix)
 }

@@ -17,7 +17,7 @@ func Plan(req Request) ([]PlannedUpload, error) {
 	}
 
 	if !info.IsDir() {
-		if !selected(filepath.Base(req.Source), req.Include, req.Exclude) {
+		if !Selected(filepath.Base(req.Source), req.Include, req.Exclude) {
 			return nil, nil
 		}
 		key := destinationKeyForFile(req.Destination.Key, filepath.Base(req.Source))
@@ -56,7 +56,7 @@ func Plan(req Request) ([]PlannedUpload, error) {
 			return err
 		}
 		rel = filepath.ToSlash(rel)
-		if !selected(rel, req.Include, req.Exclude) {
+		if !Selected(rel, req.Include, req.Exclude) {
 			return nil
 		}
 
@@ -118,7 +118,7 @@ func cloneMetadata(metadata map[string]string) map[string]string {
 	return cloned
 }
 
-func selected(rel string, include, exclude []string) bool {
+func Selected(rel string, include, exclude []string) bool {
 	if len(include) > 0 && !matchesAny(rel, include) {
 		return false
 	}

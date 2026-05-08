@@ -181,7 +181,7 @@ func TestSyncToMinIOUploadsOnlyChangedAndNewObjects(t *testing.T) {
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cleanupCancel()
 
-		for _, key := range []string{"site/same.txt", "site/changed.txt", "site/new.txt", "site/ignored.map"} {
+		for _, key := range []string{"site/same.txt", "site/changed.txt", "site/new.txt", "site/old.txt", "site/protected.map", "site/ignored.map"} {
 			_, _ = client.DeleteObject(cleanupCtx, &s3.DeleteObjectInput{
 				Bucket: aws.String(bucket),
 				Key:    aws.String(key),
@@ -194,6 +194,8 @@ func TestSyncToMinIOUploadsOnlyChangedAndNewObjects(t *testing.T) {
 
 	putObject(t, ctx, client, bucket, "site/same.txt", "same")
 	putObject(t, ctx, client, bucket, "site/changed.txt", "old")
+	putObject(t, ctx, client, bucket, "site/old.txt", "old")
+	putObject(t, ctx, client, bucket, "site/protected.map", "protected")
 
 	dir := t.TempDir()
 	writeLocalFile(t, filepath.Join(dir, "same.txt"), "DIFF")
@@ -234,6 +236,9 @@ func TestSyncToMinIOUploadsOnlyChangedAndNewObjects(t *testing.T) {
 	if objectExists(t, ctx, client, bucket, "site/ignored.map") {
 		t.Fatalf("excluded object was uploaded")
 	}
+	if !objectExists(t, ctx, client, bucket, "site/old.txt") {
+		t.Fatalf("plain sync should not delete extra remote object")
+	}
 
 	out.Reset()
 	err = syncer.Service{Lister: lister, Uploader: uploader, Stdout: &out}.Sync(ctx, syncer.Request{
@@ -250,6 +255,47 @@ func TestSyncToMinIOUploadsOnlyChangedAndNewObjects(t *testing.T) {
 
 	if body := getObjectBody(t, ctx, client, bucket, "site/same.txt"); body != "DIFF" {
 		t.Fatalf("checksum sync should update same-size changed object, got body %q", body)
+	}
+
+	deleter, err := s3client.NewDeleter(ctx, cfg)
+	if err != nil {
+		t.Fatalf("new deleter: %v", err)
+	}
+
+	out.Reset()
+	err = syncer.Service{Lister: lister, Uploader: uploader, Stdout: &out}.Sync(ctx, syncer.Request{
+		Source:      dir,
+		Destination: list.S3Prefix{Bucket: bucket, Prefix: "site/"},
+		Delete:      true,
+		DryRun:      true,
+		Include:     []string{"*.txt"},
+		Exclude:     []string{"*.map"},
+	})
+	if err != nil {
+		t.Fatalf("dry-run delete sync: %v", err)
+	}
+	if !objectExists(t, ctx, client, bucket, "site/old.txt") {
+		t.Fatalf("dry-run delete should not delete extra remote object")
+	}
+
+	out.Reset()
+	err = syncer.Service{Lister: lister, Uploader: uploader, Deleter: deleter, Stdout: &out}.Sync(ctx, syncer.Request{
+		Source:        dir,
+		Destination:   list.S3Prefix{Bucket: bucket, Prefix: "site/"},
+		Delete:        true,
+		ConfirmDelete: true,
+		Include:       []string{"*.txt"},
+		Exclude:       []string{"*.map"},
+		Progress:      true,
+	})
+	if err != nil {
+		t.Fatalf("delete sync: %v", err)
+	}
+	if objectExists(t, ctx, client, bucket, "site/old.txt") {
+		t.Fatalf("delete sync should delete extra remote object")
+	}
+	if !objectExists(t, ctx, client, bucket, "site/protected.map") {
+		t.Fatalf("delete sync should respect exclude filters")
 	}
 }
 

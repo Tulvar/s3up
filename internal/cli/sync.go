@@ -19,6 +19,8 @@ type syncFlags struct {
 	pathStyle    bool
 	dryRun       bool
 	checksum     bool
+	delete       bool
+	yes          bool
 	noProgress   bool
 	contentType  string
 	storageClass string
@@ -40,6 +42,8 @@ func registerSyncFlags(fs *flag.FlagSet, values *syncFlags) {
 	fs.BoolVar(&values.pathStyle, "path-style", false, "use path-style addressing")
 	fs.BoolVar(&values.dryRun, "dry-run", false, "print sync actions without uploading objects")
 	fs.BoolVar(&values.checksum, "checksum", false, "compare same-size objects using local MD5 and remote ETag")
+	fs.BoolVar(&values.delete, "delete", false, "delete remote objects missing from the local plan")
+	fs.BoolVar(&values.yes, "yes", false, "confirm destructive sync actions such as --delete")
 	fs.BoolVar(&values.noProgress, "no-progress", false, "disable sync progress output")
 	fs.StringVar(&values.contentType, "content-type", "", "content type for uploaded objects")
 	fs.StringVar(&values.storageClass, "storage-class", "", "S3 storage class")
@@ -84,20 +88,29 @@ func (c CLI) runSync(ctx context.Context, args []string) error {
 	}
 
 	var uploader upload.ObjectUploader
+	var deleter syncer.ObjectDeleter
 	if !values.dryRun {
 		uploader, err = s3client.NewUploader(ctx, cfg)
 		if err != nil {
 			return err
 		}
+		if values.delete {
+			deleter, err = s3client.NewDeleter(ctx, cfg)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
-	return syncer.Service{Lister: lister, Uploader: uploader, Stdout: c.stdout}.Sync(ctx, syncer.Request{
-		Source:      fs.Arg(0),
-		Destination: dest,
-		DryRun:      values.dryRun,
-		Checksum:    values.checksum,
-		Include:     values.include.Values(),
-		Exclude:     values.exclude.Values(),
+	return syncer.Service{Lister: lister, Uploader: uploader, Deleter: deleter, Stdout: c.stdout}.Sync(ctx, syncer.Request{
+		Source:        fs.Arg(0),
+		Destination:   dest,
+		DryRun:        values.dryRun,
+		Checksum:      values.checksum,
+		Delete:        values.delete,
+		ConfirmDelete: values.yes,
+		Include:       values.include.Values(),
+		Exclude:       values.exclude.Values(),
 		Options: upload.Options{
 			ContentType:  values.contentType,
 			Metadata:     values.metadata.Map(),

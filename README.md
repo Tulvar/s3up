@@ -12,6 +12,8 @@ s3up upload ./dist s3://bucket/site/ --recursive --include "*.html"
 s3up sync ./dist s3://bucket/site/
 s3up sync ./dist s3://bucket/site/ --dry-run
 s3up sync ./dist s3://bucket/site/ --checksum
+s3up sync ./dist s3://bucket/site/ --delete --yes
+s3up sync ./dist s3://bucket/site/ --delete --dry-run
 s3up sync ./dist s3://bucket/site/ --exclude "*.map"
 s3up sync ./dist s3://bucket/site/ --include "*.html"
 s3up ls s3://bucket/site/
@@ -61,6 +63,8 @@ Sync flags:
 --path-style    use path-style addressing
 --dry-run       print sync actions without uploading objects
 --checksum      compare same-size objects using local MD5 and remote ETag
+--delete        delete remote objects missing from the local plan
+--yes           confirm destructive sync actions such as --delete
 --no-progress   disable sync progress output
 --content-type  content type for uploaded objects
 --metadata      object metadata as key=value, can be repeated
@@ -72,8 +76,10 @@ Sync flags:
 --exclude       exclude files by glob pattern, can be repeated
 ```
 
-Sync uploads local files that are missing remotely or have a different size. It
-does not delete remote objects.
+Sync uploads local files that are missing remotely or have a different size. By
+default it does not delete remote objects. Pass `--delete --dry-run` to preview
+removals, or `--delete --yes` to remove remote objects under the destination
+prefix that are missing from the filtered local plan.
 
 Example for a local S3-compatible service:
 

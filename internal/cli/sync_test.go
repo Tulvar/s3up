@@ -34,6 +34,12 @@ func TestUsageMentionsSync(t *testing.T) {
 	if !strings.Contains(stdout.String(), "-checksum") {
 		t.Fatalf("usage output does not mention checksum: %q", stdout.String())
 	}
+	if !strings.Contains(stdout.String(), "-delete") {
+		t.Fatalf("usage output does not mention delete: %q", stdout.String())
+	}
+	if !strings.Contains(stdout.String(), "-yes") {
+		t.Fatalf("usage output does not mention yes: %q", stdout.String())
+	}
 	if !strings.Contains(stdout.String(), "-exclude") {
 		t.Fatalf("usage output does not mention exclude: %q", stdout.String())
 	}

@@ -30,6 +30,15 @@ func (u *recordingUploader) Upload(_ context.Context, input upload.UploadInput) 
 	return nil
 }
 
+type recordingDeleter struct {
+	inputs []DeleteInput
+}
+
+func (d *recordingDeleter) Delete(_ context.Context, input DeleteInput) error {
+	d.inputs = append(d.inputs, input)
+	return nil
+}
+
 func TestServiceSyncUploadsOnlyChangedAndMissing(t *testing.T) {
 	t.Parallel()
 
@@ -138,6 +147,96 @@ func TestServiceSyncPassesIncludeToLocalPlan(t *testing.T) {
 
 	if len(uploader.inputs) != 1 || uploader.inputs[0].Key != "site/index.html" {
 		t.Fatalf("unexpected uploads: %+v", uploader.inputs)
+	}
+}
+
+func TestServiceSyncDeleteRemovesRemoteOnlyObjects(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "index.html"), "home")
+
+	lister := &recordingLister{
+		entries: []list.Entry{
+			{Key: "site/index.html", Size: 4},
+			{Key: "site/old.html", Size: 3},
+		},
+	}
+	uploader := &recordingUploader{}
+	deleter := &recordingDeleter{}
+	var out bytes.Buffer
+
+	err := Service{Lister: lister, Uploader: uploader, Deleter: deleter, Stdout: &out}.Sync(context.Background(), Request{
+		Source:        dir,
+		Destination:   list.S3Prefix{Bucket: "bucket", Prefix: "site/"},
+		Delete:        true,
+		ConfirmDelete: true,
+		Progress:      true,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(deleter.inputs) != 1 || deleter.inputs[0].Key != "site/old.html" {
+		t.Fatalf("unexpected deletes: %+v", deleter.inputs)
+	}
+	if !strings.Contains(out.String(), "delete") {
+		t.Fatalf("expected delete output, got %q", out.String())
+	}
+}
+
+func TestServiceSyncDeleteDryRunDoesNotRequireDeleter(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "index.html"), "home")
+
+	lister := &recordingLister{
+		entries: []list.Entry{{Key: "site/old.html", Size: 3}},
+	}
+	var out bytes.Buffer
+
+	err := Service{Lister: lister, Stdout: &out}.Sync(context.Background(), Request{
+		Source:      dir,
+		Destination: list.S3Prefix{Bucket: "bucket", Prefix: "site/"},
+		Delete:      true,
+		DryRun:      true,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(out.String(), "dry-run delete") {
+		t.Fatalf("expected dry-run delete output, got %q", out.String())
+	}
+}
+
+func TestServiceSyncDeleteRequiresDeleter(t *testing.T) {
+	t.Parallel()
+
+	err := Service{Lister: &recordingLister{}, Uploader: &recordingUploader{}, Stdout: &bytes.Buffer{}}.Sync(context.Background(), Request{
+		Source:        t.TempDir(),
+		Destination:   list.S3Prefix{Bucket: "bucket"},
+		Delete:        true,
+		ConfirmDelete: true,
+	})
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+}
+
+func TestServiceSyncDeleteRequiresConfirmation(t *testing.T) {
+	t.Parallel()
+
+	err := Service{Lister: &recordingLister{}, Uploader: &recordingUploader{}, Deleter: &recordingDeleter{}, Stdout: &bytes.Buffer{}}.Sync(context.Background(), Request{
+		Source:      t.TempDir(),
+		Destination: list.S3Prefix{Bucket: "bucket"},
+		Delete:      true,
+	})
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if !strings.Contains(err.Error(), "--yes") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
