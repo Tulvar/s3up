@@ -118,6 +118,22 @@ func TestParseByteSizeRejectsInvalidValue(t *testing.T) {
 	}
 }
 
+func TestParseByteSizeRejectsTooSmallValue(t *testing.T) {
+	t.Parallel()
+
+	if _, err := parseByteSize("4MiB"); err == nil {
+		t.Fatalf("expected error")
+	}
+}
+
+func TestParseByteSizeRejectsOverflow(t *testing.T) {
+	t.Parallel()
+
+	if _, err := parseByteSize("9223372036854775807GiB"); err == nil {
+		t.Fatalf("expected error")
+	}
+}
+
 func TestStringValues(t *testing.T) {
 	t.Parallel()
 

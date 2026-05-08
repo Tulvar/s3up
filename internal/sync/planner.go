@@ -115,10 +115,11 @@ func BuildLocalPlan(req Request) ([]upload.PlannedUpload, error) {
 			Bucket: req.Destination.Bucket,
 			Key:    req.Destination.Prefix,
 		},
-		Recursive: info.IsDir(),
-		Include:   req.Include,
-		Exclude:   req.Exclude,
-		Options:   req.Options,
+		Recursive:   info.IsDir(),
+		FollowLinks: req.FollowLinks,
+		Include:     req.Include,
+		Exclude:     req.Exclude,
+		Options:     req.Options,
 	})
 }
 

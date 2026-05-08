@@ -167,3 +167,20 @@ func TestServiceUploadRejectsNegativeWorkers(t *testing.T) {
 		t.Fatalf("expected error")
 	}
 }
+
+func TestServiceUploadRejectsTooManyWorkers(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	file := filepath.Join(dir, "artifact.txt")
+	writeFile(t, file, "hello")
+
+	err := Service{Uploader: &recordingUploader{}}.Upload(context.Background(), Request{
+		Source:      file,
+		Destination: S3URI{Bucket: "bucket", Key: "uploads/"},
+		Workers:     65,
+	})
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+}

@@ -95,6 +95,89 @@ func TestPlanDirectoryRecursive(t *testing.T) {
 	}
 }
 
+func TestPlanSkipsSymlinkByDefault(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	target := filepath.Join(dir, "target.txt")
+	link := filepath.Join(dir, "link.txt")
+	writeFile(t, target, "secret")
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatalf("symlink: %v", err)
+	}
+
+	got, err := Plan(Request{
+		Source:      dir,
+		Destination: S3URI{Bucket: "bucket", Key: "site/"},
+		Recursive:   true,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	keys := plannedKeys(got)
+	want := []string{"site/target.txt"}
+	if !reflect.DeepEqual(keys, want) {
+		t.Fatalf("got keys %+v, want %+v", keys, want)
+	}
+}
+
+func TestPlanFollowsSymlinkedFilesWhenEnabled(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	target := filepath.Join(dir, "target.txt")
+	link := filepath.Join(dir, "link.txt")
+	writeFile(t, target, "secret")
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatalf("symlink: %v", err)
+	}
+
+	got, err := Plan(Request{
+		Source:      dir,
+		Destination: S3URI{Bucket: "bucket", Key: "site/"},
+		Recursive:   true,
+		FollowLinks: true,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	keys := plannedKeys(got)
+	want := []string{"site/link.txt", "site/target.txt"}
+	if !reflect.DeepEqual(keys, want) {
+		t.Fatalf("got keys %+v, want %+v", keys, want)
+	}
+}
+
+func TestPlanFollowsSymlinkedDirectoriesWhenEnabled(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	shared := filepath.Join(dir, "shared")
+	link := filepath.Join(dir, "linked")
+	writeFile(t, filepath.Join(shared, "asset.txt"), "asset")
+	if err := os.Symlink(shared, link); err != nil {
+		t.Fatalf("symlink: %v", err)
+	}
+
+	got, err := Plan(Request{
+		Source:      dir,
+		Destination: S3URI{Bucket: "bucket", Key: "site/"},
+		Recursive:   true,
+		FollowLinks: true,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	keys := plannedKeys(got)
+	want := []string{"site/linked/asset.txt"}
+	if !reflect.DeepEqual(keys, want) {
+		t.Fatalf("got keys %+v, want %+v", keys, want)
+	}
+}
+
 func TestPlanDirectoryExcludesByBaseNamePattern(t *testing.T) {
 	t.Parallel()
 

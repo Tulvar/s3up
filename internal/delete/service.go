@@ -6,6 +6,7 @@ import (
 	"io"
 	"sync"
 
+	"github.com/tulvar/s3up/internal/limits"
 	"github.com/tulvar/s3up/internal/list"
 	"github.com/tulvar/s3up/internal/upload"
 )
@@ -27,6 +28,9 @@ func (s Service) Delete(ctx context.Context, req Request) error {
 	}
 	if workers < 0 {
 		return fmt.Errorf("workers must be greater than 0")
+	}
+	if workers > limits.MaxWorkers {
+		return fmt.Errorf("workers must be less than or equal to %d", limits.MaxWorkers)
 	}
 
 	keys, err := s.plan(ctx, req)

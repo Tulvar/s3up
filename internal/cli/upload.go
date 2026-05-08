@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
@@ -13,22 +14,24 @@ import (
 )
 
 type uploadFlags struct {
-	profile      string
-	region       string
-	endpointURL  string
-	pathStyle    bool
-	recursive    bool
-	dryRun       bool
-	noProgress   bool
-	contentType  string
-	storageClass string
-	acl          string
-	concurrency  int
-	partSize     byteSize
-	workers      int
-	metadata     metadataValues
-	include      stringValues
-	exclude      stringValues
+	profile               string
+	region                string
+	endpointURL           string
+	allowInsecureEndpoint bool
+	pathStyle             bool
+	recursive             bool
+	followLinks           bool
+	dryRun                bool
+	noProgress            bool
+	contentType           string
+	storageClass          string
+	acl                   string
+	concurrency           int
+	partSize              byteSize
+	workers               int
+	metadata              metadataValues
+	include               stringValues
+	exclude               stringValues
 }
 
 func registerUploadFlags(fs *flag.FlagSet, values *uploadFlags) {
@@ -38,8 +41,10 @@ func registerUploadFlags(fs *flag.FlagSet, values *uploadFlags) {
 	fs.StringVar(&values.profile, "profile", "", "AWS shared config profile")
 	fs.StringVar(&values.region, "region", "", "AWS region")
 	fs.StringVar(&values.endpointURL, "endpoint-url", "", "custom S3 endpoint URL")
+	fs.BoolVar(&values.allowInsecureEndpoint, "allow-insecure-endpoint", false, "allow http endpoint URLs")
 	fs.BoolVar(&values.pathStyle, "path-style", false, "use path-style addressing")
 	fs.BoolVar(&values.recursive, "recursive", false, "upload directories recursively")
+	fs.BoolVar(&values.followLinks, "follow-symlinks", false, "follow symlinked files")
 	fs.BoolVar(&values.dryRun, "dry-run", false, "print planned uploads without sending objects")
 	fs.BoolVar(&values.noProgress, "no-progress", false, "disable upload progress output")
 	fs.StringVar(&values.contentType, "content-type", "", "content type for uploaded objects")
@@ -75,6 +80,7 @@ func (c CLI) runUpload(ctx context.Context, args []string) error {
 		Source:      fs.Arg(0),
 		Destination: dest,
 		Recursive:   values.recursive,
+		FollowLinks: values.followLinks,
 		DryRun:      values.dryRun,
 		Include:     values.include.Values(),
 		Exclude:     values.exclude.Values(),
@@ -91,12 +97,13 @@ func (c CLI) runUpload(ctx context.Context, args []string) error {
 	var uploader upload.ObjectUploader
 	if !values.dryRun {
 		uploader, err = s3client.NewUploader(ctx, appconfig.Config{
-			Profile:     values.profile,
-			Region:      values.region,
-			EndpointURL: values.endpointURL,
-			PathStyle:   values.pathStyle,
-			Concurrency: values.concurrency,
-			PartSize:    int64(values.partSize),
+			Profile:               values.profile,
+			Region:                values.region,
+			EndpointURL:           values.endpointURL,
+			AllowInsecureEndpoint: values.allowInsecureEndpoint,
+			PathStyle:             values.pathStyle,
+			Concurrency:           values.concurrency,
+			PartSize:              int64(values.partSize),
 		})
 		if err != nil {
 			return err
@@ -145,6 +152,8 @@ func (m metadataValues) Map() map[string]string {
 }
 
 type byteSize int64
+
+const minMultipartPartSize = 5 * 1024 * 1024
 
 func (s *byteSize) String() string {
 	if s == nil || *s == 0 {
@@ -216,13 +225,23 @@ func parseByteSize(raw string) (int64, error) {
 			if err != nil || parsed <= 0 {
 				return 0, fmt.Errorf("invalid part size %q", raw)
 			}
-			return parsed * unit.mult, nil
+			if parsed > math.MaxInt64/unit.mult {
+				return 0, fmt.Errorf("part size %q is too large", raw)
+			}
+			size := parsed * unit.mult
+			if size < minMultipartPartSize {
+				return 0, fmt.Errorf("part size must be at least 5MiB")
+			}
+			return size, nil
 		}
 	}
 
 	parsed, err := strconv.ParseInt(value, 10, 64)
 	if err != nil || parsed <= 0 {
 		return 0, fmt.Errorf("invalid part size %q", raw)
+	}
+	if parsed < minMultipartPartSize {
+		return 0, fmt.Errorf("part size must be at least 5MiB")
 	}
 	return parsed, nil
 }

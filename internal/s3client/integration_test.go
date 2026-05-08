@@ -75,11 +75,12 @@ func TestUploadToMinIO(t *testing.T) {
 	}
 
 	uploader, err := s3client.NewUploader(ctx, config.Config{
-		Region:      region,
-		EndpointURL: endpoint,
-		PathStyle:   true,
-		Concurrency: 2,
-		PartSize:    5 * 1024 * 1024,
+		Region:                region,
+		EndpointURL:           endpoint,
+		AllowInsecureEndpoint: true,
+		PathStyle:             true,
+		Concurrency:           2,
+		PartSize:              5 * 1024 * 1024,
 	})
 	if err != nil {
 		t.Fatalf("new uploader: %v", err)
@@ -121,9 +122,10 @@ func TestUploadToMinIO(t *testing.T) {
 	}
 
 	lister, err := s3client.NewLister(ctx, config.Config{
-		Region:      region,
-		EndpointURL: endpoint,
-		PathStyle:   true,
+		Region:                region,
+		EndpointURL:           endpoint,
+		AllowInsecureEndpoint: true,
+		PathStyle:             true,
 	})
 	if err != nil {
 		t.Fatalf("new lister: %v", err)
@@ -157,9 +159,10 @@ func TestSyncToMinIOUploadsOnlyChangedAndNewObjects(t *testing.T) {
 	defer cancel()
 
 	cfg := config.Config{
-		Region:      region,
-		EndpointURL: endpoint,
-		PathStyle:   true,
+		Region:                region,
+		EndpointURL:           endpoint,
+		AllowInsecureEndpoint: true,
+		PathStyle:             true,
 	}
 	client := s3.NewFromConfig(aws.Config{
 		Region:      region,
@@ -314,9 +317,10 @@ func TestDeleteFromMinIO(t *testing.T) {
 	defer cancel()
 
 	cfg := config.Config{
-		Region:      region,
-		EndpointURL: endpoint,
-		PathStyle:   true,
+		Region:                region,
+		EndpointURL:           endpoint,
+		AllowInsecureEndpoint: true,
+		PathStyle:             true,
 	}
 	client := s3.NewFromConfig(aws.Config{
 		Region:      region,

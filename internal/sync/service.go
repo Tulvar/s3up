@@ -6,6 +6,7 @@ import (
 	"io"
 	stdsync "sync"
 
+	"github.com/tulvar/s3up/internal/limits"
 	"github.com/tulvar/s3up/internal/list"
 	"github.com/tulvar/s3up/internal/upload"
 )
@@ -27,6 +28,9 @@ func (s Service) Sync(ctx context.Context, req Request) error {
 	if req.Delete && !req.DryRun && !req.ConfirmDelete {
 		return fmt.Errorf("--delete requires --yes unless --dry-run is set")
 	}
+	if req.Delete && req.Destination.Prefix == "" {
+		return fmt.Errorf("--delete requires a non-empty destination prefix")
+	}
 	if req.Delete && !req.DryRun && s.Deleter == nil {
 		return fmt.Errorf("deleter is not configured")
 	}
@@ -36,6 +40,9 @@ func (s Service) Sync(ctx context.Context, req Request) error {
 	}
 	if workers < 0 {
 		return fmt.Errorf("workers must be greater than 0")
+	}
+	if workers > limits.MaxWorkers {
+		return fmt.Errorf("workers must be less than or equal to %d", limits.MaxWorkers)
 	}
 
 	local, err := BuildLocalPlan(req)

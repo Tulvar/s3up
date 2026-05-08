@@ -10,6 +10,7 @@ type Request struct {
 	Source        string
 	Destination   list.S3Prefix
 	DryRun        bool
+	FollowLinks   bool
 	Checksum      bool
 	Delete        bool
 	ConfirmDelete bool
