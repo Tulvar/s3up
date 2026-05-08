@@ -7,6 +7,10 @@ Small CLI tool for uploading files and directories to S3.
 ```sh
 s3up upload ./file.txt s3://bucket/path/file.txt
 s3up upload ./dist s3://bucket/site/ --recursive
+s3up ls s3://bucket/site/
+s3up ls s3://bucket/site/ --recursive
+s3up ls s3://bucket/site/ --human
+s3up ls s3://bucket/site/ --json
 ```
 
 Useful flags:
@@ -25,6 +29,18 @@ Useful flags:
 --acl           S3 canned ACL
 --concurrency   multipart upload concurrency
 --part-size     multipart part size, for example 8MiB
+```
+
+List flags:
+
+```sh
+--profile       AWS shared config profile
+--region        AWS region
+--endpoint-url  custom S3-compatible endpoint
+--path-style    use path-style addressing
+--recursive     list objects recursively
+--human         print object sizes in human-readable units
+--json          print entries as JSON
 ```
 
 Example for a local S3-compatible service:

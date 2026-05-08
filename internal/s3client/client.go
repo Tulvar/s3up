@@ -12,6 +12,32 @@ import (
 )
 
 func NewUploader(ctx context.Context, cfg config.Config) (*Uploader, error) {
+	client, err := newClient(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	uploader := manager.NewUploader(client, func(u *manager.Uploader) {
+		if cfg.Concurrency > 0 {
+			u.Concurrency = cfg.Concurrency
+		}
+		if cfg.PartSize > 0 {
+			u.PartSize = cfg.PartSize
+		}
+	})
+
+	return &Uploader{uploader: uploader}, nil
+}
+
+func NewLister(ctx context.Context, cfg config.Config) (*Lister, error) {
+	client, err := newClient(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &Lister{client: client}, nil
+}
+
+func newClient(ctx context.Context, cfg config.Config) (*s3.Client, error) {
 	var opts []func(*awsconfig.LoadOptions) error
 	if cfg.Region != "" {
 		opts = append(opts, awsconfig.WithRegion(cfg.Region))
@@ -32,14 +58,5 @@ func NewUploader(ctx context.Context, cfg config.Config) (*Uploader, error) {
 		o.UsePathStyle = cfg.PathStyle
 	})
 
-	uploader := manager.NewUploader(client, func(u *manager.Uploader) {
-		if cfg.Concurrency > 0 {
-			u.Concurrency = cfg.Concurrency
-		}
-		if cfg.PartSize > 0 {
-			u.PartSize = cfg.PartSize
-		}
-	})
-
-	return &Uploader{uploader: uploader}, nil
+	return client, nil
 }
