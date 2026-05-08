@@ -5,6 +5,7 @@ import (
 	"context"
 	"path/filepath"
 	"strings"
+	stdsync "sync"
 	"testing"
 
 	"github.com/tulvar/s3up/internal/list"
@@ -22,21 +23,39 @@ func (l *recordingLister) List(_ context.Context, input list.ListInput) ([]list.
 }
 
 type recordingUploader struct {
+	mu     stdsync.Mutex
 	inputs []upload.UploadInput
 }
 
 func (u *recordingUploader) Upload(_ context.Context, input upload.UploadInput) error {
+	u.mu.Lock()
+	defer u.mu.Unlock()
 	u.inputs = append(u.inputs, input)
 	return nil
 }
 
+func (u *recordingUploader) len() int {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	return len(u.inputs)
+}
+
 type recordingDeleter struct {
+	mu     stdsync.Mutex
 	inputs []DeleteInput
 }
 
 func (d *recordingDeleter) Delete(_ context.Context, input DeleteInput) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
 	d.inputs = append(d.inputs, input)
 	return nil
+}
+
+func (d *recordingDeleter) len() int {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return len(d.inputs)
 }
 
 func TestServiceSyncUploadsOnlyChangedAndMissing(t *testing.T) {
@@ -78,6 +97,9 @@ func TestServiceSyncUploadsOnlyChangedAndMissing(t *testing.T) {
 	if !strings.Contains(out.String(), "skip") || !strings.Contains(out.String(), "upload") {
 		t.Fatalf("unexpected output: %q", out.String())
 	}
+	if !strings.Contains(out.String(), "summary: uploaded=2 deleted=0 skipped=1") {
+		t.Fatalf("expected summary output, got %q", out.String())
+	}
 }
 
 func TestServiceSyncDryRunDoesNotRequireUploader(t *testing.T) {
@@ -99,6 +121,35 @@ func TestServiceSyncDryRunDoesNotRequireUploader(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "dry-run upload") {
 		t.Fatalf("unexpected output: %q", out.String())
+	}
+	if strings.Contains(out.String(), "summary:") {
+		t.Fatalf("did not expect summary without progress, got %q", out.String())
+	}
+}
+
+func TestServiceSyncDryRunPrintsSummaryWithProgress(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "new.txt"), "new")
+
+	lister := &recordingLister{
+		entries: []list.Entry{{Key: "site/old.txt", Size: 3}},
+	}
+	var out bytes.Buffer
+
+	err := Service{Lister: lister, Stdout: &out}.Sync(context.Background(), Request{
+		Source:      dir,
+		Destination: list.S3Prefix{Bucket: "bucket", Prefix: "site/"},
+		Delete:      true,
+		DryRun:      true,
+		Progress:    true,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(out.String(), "summary: planned uploads=1 planned deletes=1 skipped=0") {
+		t.Fatalf("expected summary output, got %q", out.String())
 	}
 }
 
@@ -237,6 +288,53 @@ func TestServiceSyncDeleteRequiresConfirmation(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "--yes") {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestServiceSyncWithWorkersProcessesUploadAndDeleteActions(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "new-a.txt"), "a")
+	writeFile(t, filepath.Join(dir, "new-b.txt"), "b")
+
+	lister := &recordingLister{
+		entries: []list.Entry{
+			{Key: "site/old-a.txt", Size: 1},
+			{Key: "site/old-b.txt", Size: 1},
+		},
+	}
+	uploader := &recordingUploader{}
+	deleter := &recordingDeleter{}
+
+	err := Service{Lister: lister, Uploader: uploader, Deleter: deleter, Stdout: &bytes.Buffer{}}.Sync(context.Background(), Request{
+		Source:        dir,
+		Destination:   list.S3Prefix{Bucket: "bucket", Prefix: "site/"},
+		Delete:        true,
+		ConfirmDelete: true,
+		Workers:       4,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if uploader.len() != 2 {
+		t.Fatalf("got %d uploads, want 2", uploader.len())
+	}
+	if deleter.len() != 2 {
+		t.Fatalf("got %d deletes, want 2", deleter.len())
+	}
+}
+
+func TestServiceSyncRejectsNegativeWorkers(t *testing.T) {
+	t.Parallel()
+
+	err := Service{Lister: &recordingLister{}, Uploader: &recordingUploader{}, Stdout: &bytes.Buffer{}}.Sync(context.Background(), Request{
+		Source:      t.TempDir(),
+		Destination: list.S3Prefix{Bucket: "bucket"},
+		Workers:     -1,
+	})
+	if err == nil {
+		t.Fatalf("expected error")
 	}
 }
 

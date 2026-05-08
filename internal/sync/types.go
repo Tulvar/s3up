@@ -18,6 +18,7 @@ type Request struct {
 	Exclude       []string
 	Options       upload.Options
 	Progress      bool
+	Workers       int
 }
 
 type ActionKind string
