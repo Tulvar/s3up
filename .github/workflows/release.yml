@@ -54,7 +54,7 @@ jobs:
                 ./cmd/s3up
 
             cp README.md LICENSE "$dir/"
-            tar -C dist -czf "dist/s3up_${name}.tar.gz" "s3up_${name}"
+            tar -C dist -czf "dist/s3up_${VERSION}_${name}.tar.gz" "s3up_${name}"
             rm -rf "$dir"
           }
 
