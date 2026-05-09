@@ -27,6 +27,10 @@ s3up ls s3://bucket/site/ --human
 s3up ls s3://bucket/site/ --json
 ```
 
+Flags can be placed before or after positional arguments. For S3-compatible
+endpoints, `s3up` uses `us-east-1` when no region is provided via `--region`,
+`AWS_REGION`, or `AWS_DEFAULT_REGION`.
+
 Useful flags:
 
 ```sh

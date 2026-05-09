@@ -1,10 +1,12 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"flag"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/tulvar/s3up/pkg/version"
 )
@@ -54,27 +56,42 @@ func (c CLI) printUsage() {
 	fmt.Fprintln(c.stdout, "  s3up ls [flags] <s3://bucket/prefix>")
 	fmt.Fprintln(c.stdout, "  s3up version")
 	fmt.Fprintln(c.stdout)
+	fmt.Fprintln(c.stdout, "Flags may be placed before or after positional arguments.")
+	fmt.Fprintln(c.stdout)
 	fmt.Fprintln(c.stdout, "Upload flags:")
 	fs := flag.NewFlagSet("upload", flag.ContinueOnError)
 	registerUploadFlags(fs, nil)
 	fs.SetOutput(c.stdout)
-	fs.PrintDefaults()
+	printFlagDefaults(c.stdout, fs)
 	fmt.Fprintln(c.stdout)
 	fmt.Fprintln(c.stdout, "LS flags:")
 	lsFlags := flag.NewFlagSet("ls", flag.ContinueOnError)
 	registerLSFlags(lsFlags, nil)
 	lsFlags.SetOutput(c.stdout)
-	lsFlags.PrintDefaults()
+	printFlagDefaults(c.stdout, lsFlags)
 	fmt.Fprintln(c.stdout)
 	fmt.Fprintln(c.stdout, "Sync flags:")
 	syncFlags := flag.NewFlagSet("sync", flag.ContinueOnError)
 	registerSyncFlags(syncFlags, nil)
 	syncFlags.SetOutput(c.stdout)
-	syncFlags.PrintDefaults()
+	printFlagDefaults(c.stdout, syncFlags)
 	fmt.Fprintln(c.stdout)
 	fmt.Fprintln(c.stdout, "Delete flags:")
 	deleteFlags := flag.NewFlagSet("delete", flag.ContinueOnError)
 	registerDeleteFlags(deleteFlags, nil)
 	deleteFlags.SetOutput(c.stdout)
-	deleteFlags.PrintDefaults()
+	printFlagDefaults(c.stdout, deleteFlags)
+}
+
+func printFlagDefaults(stdout io.Writer, fs *flag.FlagSet) {
+	var buf bytes.Buffer
+	fs.SetOutput(&buf)
+	fs.PrintDefaults()
+	output := strings.ReplaceAll(buf.String(), "\n  -", "\n  --")
+	output = strings.TrimPrefix(output, "  -")
+	if output != buf.String() {
+		output = "  --" + output
+	}
+	fmt.Fprint(stdout, output)
+	fs.SetOutput(stdout)
 }
