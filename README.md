@@ -30,6 +30,10 @@ s3up ls s3://bucket/site/ --json
 Flags can be placed before or after positional arguments. For S3-compatible
 endpoints, `s3up` uses `us-east-1` when no region is provided via `--region`,
 `AWS_REGION`, or `AWS_DEFAULT_REGION`.
+When `--endpoint-url` is set and no addressing style is specified, `s3up` uses
+path-style addressing by default. Use `--addressing-style=virtual` to force
+virtual-hosted addressing. `--path-style` is kept as a shortcut for
+`--addressing-style=path`.
 
 Useful flags:
 
@@ -39,6 +43,8 @@ Useful flags:
 --endpoint-url  custom S3-compatible endpoint
 --allow-insecure-endpoint
                 allow http endpoint URLs
+--addressing-style
+                S3 addressing style: auto, path, or virtual
 --path-style    use path-style addressing
 --recursive     upload directories recursively
 --follow-symlinks
@@ -64,6 +70,8 @@ List flags:
 --endpoint-url  custom S3-compatible endpoint
 --allow-insecure-endpoint
                 allow http endpoint URLs
+--addressing-style
+                S3 addressing style: auto, path, or virtual
 --path-style    use path-style addressing
 --recursive     list objects recursively
 --human         print object sizes in human-readable units
@@ -78,6 +86,8 @@ Delete flags:
 --endpoint-url  custom S3-compatible endpoint
 --allow-insecure-endpoint
                 allow http endpoint URLs
+--addressing-style
+                S3 addressing style: auto, path, or virtual
 --path-style    use path-style addressing
 --recursive     delete objects recursively under the target prefix
 --dry-run       print delete actions without deleting objects
@@ -96,6 +106,8 @@ Sync flags:
 --endpoint-url  custom S3-compatible endpoint
 --allow-insecure-endpoint
                 allow http endpoint URLs
+--addressing-style
+                S3 addressing style: auto, path, or virtual
 --path-style    use path-style addressing
 --follow-symlinks
                 follow symlinked files instead of skipping them

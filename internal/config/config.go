@@ -5,6 +5,7 @@ type Config struct {
 	Region                string
 	EndpointURL           string
 	AllowInsecureEndpoint bool
+	AddressingStyle       string
 	PathStyle             bool
 	Concurrency           int
 	PartSize              int64

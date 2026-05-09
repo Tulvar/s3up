@@ -50,6 +50,10 @@ func newClient(ctx context.Context, cfg config.Config) (*s3.Client, error) {
 	if err := validateEndpoint(cfg.EndpointURL, cfg.AllowInsecureEndpoint); err != nil {
 		return nil, err
 	}
+	usePathStyle, err := usePathStyle(cfg)
+	if err != nil {
+		return nil, err
+	}
 
 	var opts []func(*awsconfig.LoadOptions) error
 	if cfg.Region != "" {
@@ -69,10 +73,29 @@ func newClient(ctx context.Context, cfg config.Config) (*s3.Client, error) {
 		if cfg.EndpointURL != "" {
 			o.BaseEndpoint = aws.String(cfg.EndpointURL)
 		}
-		o.UsePathStyle = cfg.PathStyle
+		o.UsePathStyle = usePathStyle
 	})
 
 	return client, nil
+}
+
+func usePathStyle(cfg config.Config) (bool, error) {
+	switch cfg.AddressingStyle {
+	case "", "auto":
+		if cfg.PathStyle {
+			return true, nil
+		}
+		return cfg.EndpointURL != "", nil
+	case "path":
+		return true, nil
+	case "virtual":
+		if cfg.PathStyle {
+			return false, fmt.Errorf("--path-style cannot be combined with --addressing-style=virtual")
+		}
+		return false, nil
+	default:
+		return false, fmt.Errorf("addressing style must be one of auto, path, or virtual")
+	}
 }
 
 func defaultRegion(region string) string {

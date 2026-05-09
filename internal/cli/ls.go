@@ -15,6 +15,7 @@ type lsFlags struct {
 	region                string
 	endpointURL           string
 	allowInsecureEndpoint bool
+	addressingStyle       string
 	pathStyle             bool
 	recursive             bool
 	human                 bool
@@ -29,6 +30,7 @@ func registerLSFlags(fs *flag.FlagSet, values *lsFlags) {
 	fs.StringVar(&values.region, "region", "", "AWS region")
 	fs.StringVar(&values.endpointURL, "endpoint-url", "", "custom S3 endpoint URL")
 	fs.BoolVar(&values.allowInsecureEndpoint, "allow-insecure-endpoint", false, "allow http endpoint URLs")
+	fs.StringVar(&values.addressingStyle, "addressing-style", "", "S3 addressing style: auto, path, or virtual")
 	fs.BoolVar(&values.pathStyle, "path-style", false, "use path-style addressing")
 	fs.BoolVar(&values.recursive, "recursive", false, "list objects recursively")
 	fs.BoolVar(&values.human, "human", false, "print object sizes in human-readable units")
@@ -61,6 +63,7 @@ func (c CLI) runLS(ctx context.Context, args []string) error {
 		Region:                values.region,
 		EndpointURL:           values.endpointURL,
 		AllowInsecureEndpoint: values.allowInsecureEndpoint,
+		AddressingStyle:       values.addressingStyle,
 		PathStyle:             values.pathStyle,
 	})
 	if err != nil {
