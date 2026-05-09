@@ -63,6 +63,7 @@ func newClient(ctx context.Context, cfg config.Config) (*s3.Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("load aws config: %w", err)
 	}
+	awsCfg.Region = defaultRegion(awsCfg.Region)
 
 	client := s3.NewFromConfig(awsCfg, func(o *s3.Options) {
 		if cfg.EndpointURL != "" {
@@ -72,6 +73,13 @@ func newClient(ctx context.Context, cfg config.Config) (*s3.Client, error) {
 	})
 
 	return client, nil
+}
+
+func defaultRegion(region string) string {
+	if region != "" {
+		return region
+	}
+	return "us-east-1"
 }
 
 func validateEndpoint(endpoint string, allowInsecure bool) error {

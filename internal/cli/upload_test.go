@@ -37,6 +37,32 @@ func TestRunUploadDryRun(t *testing.T) {
 	}
 }
 
+func TestRunUploadAcceptsFlagsAfterPositionals(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	file := filepath.Join(dir, "artifact.txt")
+	writeFile(t, file, "hello")
+
+	var stdout, stderr bytes.Buffer
+	err := New(&stdout, &stderr).Run(context.Background(), []string{
+		"upload",
+		file,
+		"s3://bucket/uploads/",
+		"--dry-run",
+		"--content-type=text/custom",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(stdout.String(), "s3://bucket/uploads/artifact.txt") {
+		t.Fatalf("expected destination in output, got %q", stdout.String())
+	}
+	if stderr.String() != "" {
+		t.Fatalf("unexpected stderr: %q", stderr.String())
+	}
+}
+
 func TestRunUploadRequiresTwoArgs(t *testing.T) {
 	t.Parallel()
 

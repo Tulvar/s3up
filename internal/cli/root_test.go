@@ -21,6 +21,12 @@ func TestRunPrintsUsageWithoutArgs(t *testing.T) {
 	if stderr.String() != "" {
 		t.Fatalf("unexpected stderr: %q", stderr.String())
 	}
+	if !strings.Contains(stdout.String(), "--endpoint-url") {
+		t.Fatalf("usage output does not use long flag spelling: %q", stdout.String())
+	}
+	if strings.Contains(stdout.String(), "\n  -endpoint-url") {
+		t.Fatalf("usage output still contains single-dash long flags: %q", stdout.String())
+	}
 }
 
 func TestRunRejectsUnknownCommand(t *testing.T) {

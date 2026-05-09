@@ -19,3 +19,17 @@ func TestValidateEndpointAllowsHTTPWithOptIn(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func TestDefaultRegionUsesUSEast1WhenEmpty(t *testing.T) {
+	if got := defaultRegion(""); got != "us-east-1" {
+		t.Fatalf("got region %q", got)
+	}
+}
+
+func TestDefaultRegionKeepsExplicitRegion(t *testing.T) {
+	t.Parallel()
+
+	if got := defaultRegion("eu-central-1"); got != "eu-central-1" {
+		t.Fatalf("got region %q", got)
+	}
+}

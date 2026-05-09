@@ -50,3 +50,21 @@ func TestRunLSRejectsHumanAndJSONTogether(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func TestRunLSAcceptsFlagsAfterTarget(t *testing.T) {
+	t.Parallel()
+
+	var stdout, stderr bytes.Buffer
+	err := New(&stdout, &stderr).Run(context.Background(), []string{
+		"ls",
+		"s3://bucket/site/",
+		"--human",
+		"--json",
+	})
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if !strings.Contains(err.Error(), "cannot be used together") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}

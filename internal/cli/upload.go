@@ -63,7 +63,7 @@ func (c CLI) runUpload(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("upload", flag.ContinueOnError)
 	fs.SetOutput(c.stderr)
 	registerUploadFlags(fs, values)
-	if err := fs.Parse(args); err != nil {
+	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
 
