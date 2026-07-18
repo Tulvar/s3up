@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 
 	"github.com/tulvar/s3up/internal/limits"
@@ -20,6 +21,9 @@ type Service struct {
 func (s Service) Delete(ctx context.Context, req Request) error {
 	if req.Target.Prefix == "" {
 		return fmt.Errorf("delete target must include an object key or prefix")
+	}
+	if req.Recursive && !strings.HasSuffix(req.Target.Prefix, "/") {
+		return fmt.Errorf("recursive delete target prefix must end with /")
 	}
 
 	workers := req.Workers

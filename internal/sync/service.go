@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 	stdsync "sync"
 
 	"github.com/tulvar/s3up/internal/limits"
@@ -30,6 +31,9 @@ func (s Service) Sync(ctx context.Context, req Request) error {
 	}
 	if req.Delete && req.Destination.Prefix == "" {
 		return fmt.Errorf("--delete requires a non-empty destination prefix")
+	}
+	if req.Delete && !strings.HasSuffix(req.Destination.Prefix, "/") {
+		return fmt.Errorf("--delete destination prefix must end with /")
 	}
 	if req.Delete && !req.DryRun && s.Deleter == nil {
 		return fmt.Errorf("deleter is not configured")

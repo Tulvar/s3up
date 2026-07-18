@@ -3,6 +3,7 @@ package sync
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -328,6 +329,47 @@ func TestServiceSyncDeleteRequiresConfirmation(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "--yes") {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestServiceSyncDeleteRequiresDelimitedDestinationPrefix(t *testing.T) {
+	t.Parallel()
+
+	for _, dryRun := range []bool{false, true} {
+		dryRun := dryRun
+		t.Run(fmt.Sprintf("dry-run=%t", dryRun), func(t *testing.T) {
+			dir := t.TempDir()
+			writeFile(t, filepath.Join(dir, "index.html"), "home")
+
+			lister := &recordingLister{
+				entries: []list.Entry{{Key: "site-backup/keep.html", Size: 4}},
+			}
+			deleter := &recordingDeleter{}
+			err := Service{
+				Lister:   lister,
+				Uploader: &recordingUploader{},
+				Deleter:  deleter,
+				Stdout:   &bytes.Buffer{},
+			}.Sync(context.Background(), Request{
+				Source:        dir,
+				Destination:   list.S3Prefix{Bucket: "bucket", Prefix: "site"},
+				Delete:        true,
+				ConfirmDelete: true,
+				DryRun:        dryRun,
+			})
+			if err == nil {
+				t.Fatalf("expected error")
+			}
+			if !strings.Contains(err.Error(), "end with /") {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if lister.input != (list.ListInput{}) {
+				t.Fatalf("remote objects were listed: %+v", lister.input)
+			}
+			if deleter.len() != 0 {
+				t.Fatalf("got %d deletes, want 0", deleter.len())
+			}
+		})
 	}
 }
 
