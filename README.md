@@ -133,8 +133,10 @@ removals, or `--delete --yes` to remove remote objects under the destination
 prefix that are missing from the filtered local plan. `--delete` requires a
 non-empty destination prefix; `s3://bucket` is rejected for delete syncs.
 
-By default upload and sync skip symlinked files. Pass `--follow-symlinks` to
-upload the symlink target under the symlink's relative key.
+By default upload and sync skip symlinked files found inside the source tree.
+A symlink passed directly as the sync source is rejected to prevent an empty
+local plan from triggering remote deletes. Pass `--follow-symlinks` to upload
+the symlink target under the symlink's relative key.
 
 `--checksum` compares same-size local files with simple MD5-compatible remote
 ETags. Multipart, encrypted, or S3-compatible objects with non-MD5 ETags are

@@ -104,9 +104,17 @@ func Plan(local []upload.PlannedUpload, remote []list.Entry, req Request) ([]Act
 }
 
 func BuildLocalPlan(req Request) ([]upload.PlannedUpload, error) {
-	info, err := os.Stat(req.Source)
+	stat := os.Lstat
+	if req.FollowLinks {
+		stat = os.Stat
+	}
+
+	info, err := stat(req.Source)
 	if err != nil {
 		return nil, fmt.Errorf("stat source: %w", err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return nil, fmt.Errorf("source is a symlink; use --follow-symlinks to follow it")
 	}
 
 	return upload.Plan(upload.Request{

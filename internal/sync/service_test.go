@@ -3,6 +3,7 @@ package sync
 import (
 	"bytes"
 	"context"
+	"os"
 	"path/filepath"
 	"strings"
 	stdsync "sync"
@@ -233,6 +234,45 @@ func TestServiceSyncDeleteRemovesRemoteOnlyObjects(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "delete") {
 		t.Fatalf("expected delete output, got %q", out.String())
+	}
+}
+
+func TestServiceSyncDeleteRejectsRootSymlinkBeforeListingOrDeleting(t *testing.T) {
+	t.Parallel()
+
+	target := t.TempDir()
+	writeFile(t, filepath.Join(target, "index.html"), "home")
+	link := filepath.Join(t.TempDir(), "source")
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatalf("symlink: %v", err)
+	}
+
+	lister := &recordingLister{
+		entries: []list.Entry{{Key: "site/keep.html", Size: 4}},
+	}
+	deleter := &recordingDeleter{}
+	err := Service{
+		Lister:   lister,
+		Uploader: &recordingUploader{},
+		Deleter:  deleter,
+		Stdout:   &bytes.Buffer{},
+	}.Sync(context.Background(), Request{
+		Source:        link,
+		Destination:   list.S3Prefix{Bucket: "bucket", Prefix: "site/"},
+		Delete:        true,
+		ConfirmDelete: true,
+	})
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if !strings.Contains(err.Error(), "--follow-symlinks") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if lister.input != (list.ListInput{}) {
+		t.Fatalf("remote objects were listed: %+v", lister.input)
+	}
+	if deleter.len() != 0 {
+		t.Fatalf("got %d deletes, want 0", deleter.len())
 	}
 }
 

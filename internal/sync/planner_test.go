@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/tulvar/s3up/internal/list"
@@ -164,6 +165,56 @@ func TestPlanDeleteRespectsIncludeAndExclude(t *testing.T) {
 	}
 	if got[0].Kind != ActionDelete || got[0].Remote.Key != "site/old.html" {
 		t.Fatalf("unexpected action: %+v", got[0])
+	}
+}
+
+func TestBuildLocalPlanRejectsRootSymlinkByDefault(t *testing.T) {
+	t.Parallel()
+
+	target := t.TempDir()
+	if err := os.WriteFile(filepath.Join(target, "index.html"), []byte("home"), 0o644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+	link := filepath.Join(t.TempDir(), "source")
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatalf("symlink: %v", err)
+	}
+
+	_, err := BuildLocalPlan(Request{
+		Source:      link,
+		Destination: list.S3Prefix{Bucket: "bucket", Prefix: "site/"},
+	})
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if !strings.Contains(err.Error(), "--follow-symlinks") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestBuildLocalPlanFollowsRootSymlinkWhenEnabled(t *testing.T) {
+	t.Parallel()
+
+	target := t.TempDir()
+	localPath := filepath.Join(target, "index.html")
+	if err := os.WriteFile(localPath, []byte("home"), 0o644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+	link := filepath.Join(t.TempDir(), "source")
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatalf("symlink: %v", err)
+	}
+
+	got, err := BuildLocalPlan(Request{
+		Source:      link,
+		Destination: list.S3Prefix{Bucket: "bucket", Prefix: "site/"},
+		FollowLinks: true,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(got) != 1 || got[0].Key != "site/index.html" {
+		t.Fatalf("unexpected plan: %+v", got)
 	}
 }
 
