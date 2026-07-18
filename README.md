@@ -131,7 +131,10 @@ Sync uploads local files that are missing remotely or have a different size. By
 default it does not delete remote objects. Pass `--delete --dry-run` to preview
 removals, or `--delete --yes` to remove remote objects under the destination
 prefix that are missing from the filtered local plan. `--delete` requires a
-non-empty destination prefix; `s3://bucket` is rejected for delete syncs.
+non-empty destination prefix ending in `/`; `s3://bucket` and prefixes such as
+`s3://bucket/site` are rejected for delete syncs. Recursive `delete` targets
+must also end in `/`. This prevents a prefix such as `site` from also matching
+neighboring keys such as `site-backup/...`.
 
 By default upload and sync skip symlinked files found inside the source tree.
 A symlink passed directly as the sync source is rejected to prevent an empty
