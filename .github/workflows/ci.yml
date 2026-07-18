@@ -35,6 +35,9 @@ jobs:
       - name: Test
         run: make test
 
+      - name: Vulnerability scan
+        run: make vulncheck
+
       - name: Build
         run: make build
 

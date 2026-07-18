@@ -174,8 +174,11 @@ s3up upload ./dist s3://bucket/site/ \
 
 ## Development
 
+Development and release builds require Go 1.26.5 or newer.
+
 ```sh
 go test ./...
+make vulncheck
 go build ./cmd/s3up
 ```
 
@@ -183,6 +186,7 @@ Or use Make:
 
 ```sh
 make test
+make vulncheck
 make build
 ```
 
