@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 
 	"github.com/tulvar/s3up/internal/list"
@@ -57,7 +56,7 @@ func Plan(local []upload.PlannedUpload, remote []list.Entry, req Request) ([]Act
 				continue
 			}
 
-			localMD5, err := fileMD5(item.LocalPath)
+			localMD5, err := fileMD5(upload.UploadInput(item))
 			if err != nil {
 				return nil, err
 			}
@@ -104,30 +103,18 @@ func Plan(local []upload.PlannedUpload, remote []list.Entry, req Request) ([]Act
 }
 
 func BuildLocalPlan(req Request) ([]upload.PlannedUpload, error) {
-	stat := os.Lstat
-	if req.FollowLinks {
-		stat = os.Stat
-	}
-
-	info, err := stat(req.Source)
-	if err != nil {
-		return nil, fmt.Errorf("stat source: %w", err)
-	}
-	if info.Mode()&os.ModeSymlink != 0 {
-		return nil, fmt.Errorf("source is a symlink; use --follow-symlinks to follow it")
-	}
-
 	return upload.Plan(upload.Request{
 		Source: req.Source,
 		Destination: upload.S3URI{
 			Bucket: req.Destination.Bucket,
 			Key:    req.Destination.Prefix,
 		},
-		Recursive:   info.IsDir(),
-		FollowLinks: req.FollowLinks,
-		Include:     req.Include,
-		Exclude:     req.Exclude,
-		Options:     req.Options,
+		Recursive:           true,
+		FollowLinks:         req.FollowLinks,
+		RejectSourceSymlink: true,
+		Include:             req.Include,
+		Exclude:             req.Exclude,
+		Options:             req.Options,
 	})
 }
 
@@ -151,8 +138,8 @@ func comparableETag(etag string) (string, bool) {
 	return strings.ToLower(clean), true
 }
 
-func fileMD5(path string) (string, error) {
-	file, err := os.Open(path)
+func fileMD5(input upload.UploadInput) (string, error) {
+	file, err := input.OpenSource()
 	if err != nil {
 		return "", fmt.Errorf("open for checksum: %w", err)
 	}

@@ -90,6 +90,35 @@ func TestPlanChecksumSkipsSameMD5(t *testing.T) {
 	}
 }
 
+func TestPlanChecksumRejectsSymlinkReplacement(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	file := filepath.Join(dir, "file.txt")
+	target := filepath.Join(t.TempDir(), "outside.txt")
+	writeFile(t, file, "same")
+	writeFile(t, target, "same")
+	req := Request{
+		Source:      dir,
+		Destination: list.S3Prefix{Bucket: "bucket", Prefix: "site/"},
+		Checksum:    true,
+	}
+	local, err := BuildLocalPlan(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(file, file+".old"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, file); err != nil {
+		t.Fatal(err)
+	}
+	remote := []list.Entry{{Key: "site/file.txt", Size: 4, ETag: quote(md5Hex("same"))}}
+	if _, err := Plan(local, remote, req); err == nil || !strings.Contains(err.Error(), "open for checksum") {
+		t.Fatalf("expected checksum open error, got %v", err)
+	}
+}
+
 func TestPlanChecksumUploadsWhenETagIsNotComparable(t *testing.T) {
 	t.Parallel()
 

@@ -2,7 +2,6 @@ package s3client
 
 import (
 	"context"
-	"os"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
@@ -16,7 +15,7 @@ type Uploader struct {
 }
 
 func (u *Uploader) Upload(ctx context.Context, input upload.UploadInput) error {
-	file, err := os.Open(input.LocalPath)
+	file, err := input.OpenSource()
 	if err != nil {
 		return err
 	}

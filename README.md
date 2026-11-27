@@ -144,6 +144,8 @@ By default upload and sync skip symlinked files found inside the source tree.
 A symlink passed directly as the sync source is rejected to prevent an empty
 local plan from triggering remote deletes. Pass `--follow-symlinks` to upload
 the symlink target under the symlink's relative key.
+With the default settings, upload and checksum reads fail if the planned file
+has been replaced before it can be opened.
 
 `--checksum` compares same-size local files with simple MD5-compatible remote
 ETags. Multipart, encrypted, or S3-compatible objects with non-MD5 ETags are
