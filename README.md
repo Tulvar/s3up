@@ -136,6 +136,10 @@ non-empty destination prefix ending in `/`; `s3://bucket` and prefixes such as
 must also end in `/`. This prevents a prefix such as `site` from also matching
 neighboring keys such as `site-backup/...`.
 
+Malformed `--include` and `--exclude` patterns fail the command. For a single
+object delete, patterns containing `/` match the full key and other patterns
+match the base name. Excludes take precedence over includes.
+
 S3 keys and prefixes are used literally. Extra slashes, including a slash
 immediately after the bucket separator, and `.` or `..` segments are part of
 the key. Use `s3://bucket/site/` for the prefix `site/`.

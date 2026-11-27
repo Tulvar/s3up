@@ -29,6 +29,26 @@ func TestRunPrintsUsageWithoutArgs(t *testing.T) {
 	}
 }
 
+func TestRunRejectsMalformedFilters(t *testing.T) {
+	t.Parallel()
+
+	for _, args := range [][]string{
+		{"upload", "local.txt", "s3://bucket/file.txt", "--include", "["},
+		{"sync", "local", "s3://bucket/site/", "--exclude", "other/*[bad"},
+		{"delete", "s3://bucket/site/index.html", "--exclude", "["},
+	} {
+		t.Run(args[0], func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			err := New(&stdout, &stderr).Run(t.Context(), args)
+			flagName := strings.TrimPrefix(args[len(args)-2], "--")
+			if err == nil || !strings.Contains(err.Error(), "flag -"+flagName) ||
+				!strings.Contains(err.Error(), "invalid glob pattern") {
+				t.Fatalf("expected invalid filter error, got %v", err)
+			}
+		})
+	}
+}
+
 func TestRunRejectsUnknownCommand(t *testing.T) {
 	t.Parallel()
 

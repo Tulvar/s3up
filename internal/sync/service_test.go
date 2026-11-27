@@ -68,6 +68,26 @@ func (d *recordingDeleter) len() int {
 	return len(d.inputs)
 }
 
+func TestServiceSyncRejectsInvalidExcludeBeforeListing(t *testing.T) {
+	t.Parallel()
+
+	lister := &recordingLister{}
+	service := Service{Lister: lister}
+	err := service.Sync(t.Context(), Request{
+		Source:      t.TempDir(),
+		Destination: list.S3Prefix{Bucket: "bucket", Prefix: "site/"},
+		DryRun:      true,
+		Delete:      true,
+		Exclude:     []string{"["},
+	})
+	if err == nil || !strings.Contains(err.Error(), "--exclude") {
+		t.Fatalf("expected invalid exclude error, got %v", err)
+	}
+	if lister.input != (list.ListInput{}) {
+		t.Fatalf("unexpected list call: %+v", lister.input)
+	}
+}
+
 func TestServiceSyncUploadsOnlyChangedAndMissing(t *testing.T) {
 	t.Parallel()
 

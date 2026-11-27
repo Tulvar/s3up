@@ -12,6 +12,9 @@ import (
 )
 
 func Plan(local []upload.PlannedUpload, remote []list.Entry, req Request) ([]Action, error) {
+	if err := upload.ValidateFilters(req.Include, req.Exclude); err != nil {
+		return nil, err
+	}
 	remoteByKey := make(map[string]list.Entry, len(remote))
 	for _, entry := range remote {
 		if entry.IsDir {

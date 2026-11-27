@@ -59,6 +59,58 @@ func TestServiceDeleteSingleObject(t *testing.T) {
 	}
 }
 
+func TestServiceDeleteSingleObjectAppliesFilters(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name    string
+		include []string
+		exclude []string
+		want    int
+	}{
+		{name: "matching full key", include: []string{"site/*.html"}, want: 1},
+		{name: "nonmatching include", include: []string{"*.js"}},
+		{name: "excluded base name", exclude: []string{"index.html"}},
+		{name: "exclude overrides include", include: []string{"*.html"}, exclude: []string{"site/*.html"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			deleter := &recordingDeleter{}
+			service := Service{Deleter: deleter}
+			err := service.Delete(t.Context(), Request{
+				Target:  list.S3Prefix{Bucket: "bucket", Prefix: "site/index.html"},
+				Include: tc.include,
+				Exclude: tc.exclude,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := deleter.len(); got != tc.want {
+				t.Errorf("got %d deletes, want %d", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestServiceDeleteRejectsInvalidExcludeBeforeS3Calls(t *testing.T) {
+	t.Parallel()
+
+	lister := &recordingLister{entries: []list.Entry{{Key: "site/index.html"}}}
+	deleter := &recordingDeleter{}
+	service := Service{Lister: lister, Deleter: deleter}
+	err := service.Delete(t.Context(), Request{
+		Target:        list.S3Prefix{Bucket: "bucket", Prefix: "site/"},
+		Recursive:     true,
+		ConfirmDelete: true,
+		Exclude:       []string{"other/*[bad"},
+	})
+	if err == nil || !strings.Contains(err.Error(), "--exclude") {
+		t.Fatalf("expected invalid exclude error, got %v", err)
+	}
+	if lister.input != (list.ListInput{}) || deleter.len() != 0 {
+		t.Fatalf("unexpected S3 calls: list=%+v, deletes=%d", lister.input, deleter.len())
+	}
+}
+
 func TestServiceDeleteRecursiveRequiresConfirmation(t *testing.T) {
 	t.Parallel()
 

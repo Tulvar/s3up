@@ -11,6 +11,9 @@ import (
 )
 
 func Plan(req Request) ([]PlannedUpload, error) {
+	if err := ValidateFilters(req.Include, req.Exclude); err != nil {
+		return nil, err
+	}
 	info, err := statSource(req)
 	if err != nil {
 		return nil, fmt.Errorf("stat source: %w", err)
@@ -200,6 +203,7 @@ func cloneMetadata(metadata map[string]string) map[string]string {
 	return cloned
 }
 
+// Selected matches filters that have already been checked by ValidateFilters.
 func Selected(rel string, include, exclude []string) bool {
 	if len(include) > 0 && !matchesAny(rel, include) {
 		return false
@@ -207,14 +211,43 @@ func Selected(rel string, include, exclude []string) bool {
 	return !matchesAny(rel, exclude)
 }
 
+func ValidateFilters(include, exclude []string) error {
+	for _, filter := range []struct {
+		name     string
+		patterns []string
+	}{
+		{name: "--include", patterns: include},
+		{name: "--exclude", patterns: exclude},
+	} {
+		for _, pattern := range filter.patterns {
+			if err := ValidatePattern(pattern); err != nil {
+				return fmt.Errorf("%s: %w", filter.name, err)
+			}
+		}
+	}
+	return nil
+}
+
+func ValidatePattern(raw string) error {
+	pattern := normalizePattern(raw)
+	if pattern == "" {
+		return fmt.Errorf("pattern cannot be empty")
+	}
+	if _, err := path.Match(pattern, ""); err != nil {
+		return fmt.Errorf("invalid glob pattern %q: %w", raw, err)
+	}
+	return nil
+}
+
+func normalizePattern(pattern string) string {
+	return filepath.ToSlash(strings.TrimSpace(pattern))
+}
+
 func matchesAny(rel string, patterns []string) bool {
 	rel = filepath.ToSlash(rel)
 	base := path.Base(rel)
 	for _, pattern := range patterns {
-		pattern = filepath.ToSlash(strings.TrimSpace(pattern))
-		if pattern == "" {
-			continue
-		}
+		pattern = normalizePattern(pattern)
 
 		target := rel
 		if !strings.Contains(pattern, "/") {

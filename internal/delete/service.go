@@ -71,7 +71,13 @@ func (s Service) Delete(ctx context.Context, req Request) error {
 }
 
 func (s Service) plan(ctx context.Context, req Request) ([]string, error) {
+	if err := upload.ValidateFilters(req.Include, req.Exclude); err != nil {
+		return nil, err
+	}
 	if !req.Recursive {
+		if !upload.Selected(req.Target.Prefix, req.Include, req.Exclude) {
+			return nil, nil
+		}
 		return []string{req.Target.Prefix}, nil
 	}
 	if !req.DryRun && !req.ConfirmDelete {

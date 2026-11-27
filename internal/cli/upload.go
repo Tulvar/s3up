@@ -176,8 +176,8 @@ func (v *stringValues) String() string {
 
 func (v *stringValues) Set(raw string) error {
 	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return fmt.Errorf("value cannot be empty")
+	if err := upload.ValidatePattern(raw); err != nil {
+		return err
 	}
 	*v = append(*v, raw)
 	return nil
