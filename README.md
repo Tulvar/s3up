@@ -174,7 +174,7 @@ s3up upload ./dist s3://bucket/site/ \
 
 ## Development
 
-Development and release builds require Go 1.26.5 or newer.
+Development and release builds require Go 1.27.4 or newer.
 
 ```sh
 go test ./...

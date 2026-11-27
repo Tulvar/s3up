@@ -3,12 +3,14 @@ package sync
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	stdsync "sync"
 	"testing"
+	"testing/synctest"
 
 	"github.com/tulvar/s3up/internal/list"
 	"github.com/tulvar/s3up/internal/upload"
@@ -40,6 +42,12 @@ func (u *recordingUploader) len() int {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 	return len(u.inputs)
+}
+
+type syncUploaderFunc func(context.Context, upload.UploadInput) error
+
+func (f syncUploaderFunc) Upload(ctx context.Context, input upload.UploadInput) error {
+	return f(ctx, input)
 }
 
 type recordingDeleter struct {
@@ -421,6 +429,65 @@ func TestServiceSyncWithWorkersProcessesUploadAndDeleteActions(t *testing.T) {
 	}
 	if deleter.len() != 2 {
 		t.Fatalf("got %d deletes, want 2", deleter.len())
+	}
+}
+
+func TestServiceSyncWaitsForUploadsBeforeDeleting(t *testing.T) {
+	t.Parallel()
+
+	uploadFailed := errors.New("upload failed")
+	for _, tc := range []struct {
+		name        string
+		uploadErr   error
+		wantDeletes int
+	}{
+		{name: "successful upload", wantDeletes: 1},
+		{name: "failed upload", uploadErr: uploadFailed},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			writeFile(t, filepath.Join(dir, "new.txt"), "new")
+
+			synctest.Test(t, func(t *testing.T) {
+				uploadStarted := make(chan struct{})
+				finishUpload := make(chan struct{})
+				deleter := &recordingDeleter{}
+				service := Service{
+					Lister: &recordingLister{entries: []list.Entry{{Key: "site/old.txt", Size: 3}}},
+					Uploader: syncUploaderFunc(func(context.Context, upload.UploadInput) error {
+						close(uploadStarted)
+						<-finishUpload
+						return tc.uploadErr
+					}),
+					Deleter: deleter,
+				}
+
+				result := make(chan error, 1)
+				go func() {
+					result <- service.Sync(t.Context(), Request{
+						Source:        dir,
+						Destination:   list.S3Prefix{Bucket: "bucket", Prefix: "site/"},
+						Delete:        true,
+						ConfirmDelete: true,
+						Workers:       2,
+					})
+				}()
+
+				<-uploadStarted
+				synctest.Wait()
+				if got := deleter.len(); got != 0 {
+					t.Errorf("got %d deletes while upload was pending, want 0", got)
+				}
+				close(finishUpload)
+
+				if err := <-result; !errors.Is(err, tc.uploadErr) {
+					t.Errorf("got error %v, want %v", err, tc.uploadErr)
+				}
+				if got := deleter.len(); got != tc.wantDeletes {
+					t.Errorf("got %d deletes, want %d", got, tc.wantDeletes)
+				}
+			})
+		})
 	}
 }
 
