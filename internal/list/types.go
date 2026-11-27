@@ -30,7 +30,7 @@ func ParseS3Prefix(raw string) (S3Prefix, error) {
 	if !ok {
 		return S3Prefix{Bucket: bucket}, nil
 	}
-	return S3Prefix{Bucket: bucket, Prefix: strings.TrimLeft(prefix, "/")}, nil
+	return S3Prefix{Bucket: bucket, Prefix: prefix}, nil
 }
 
 type Request struct {

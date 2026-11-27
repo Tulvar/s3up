@@ -95,8 +95,8 @@ func (s Service) plan(ctx context.Context, req Request) ([]string, error) {
 		if entry.IsDir {
 			continue
 		}
-		rel := relativeKey(entry.Key, req.Target.Prefix)
-		if upload.Selected(rel, req.Include, req.Exclude) {
+		rel, inPrefix := strings.CutPrefix(entry.Key, req.Target.Prefix)
+		if inPrefix && upload.Selected(rel, req.Include, req.Exclude) {
 			keys = append(keys, entry.Key)
 		}
 	}
@@ -163,8 +163,4 @@ type deleteJob struct {
 	Index int
 	Total int
 	Key   string
-}
-
-func relativeKey(key, prefix string) string {
-	return upload.RelativeKey(key, prefix)
 }

@@ -129,22 +129,16 @@ func walkUploadDir(root, dir string, req Request, visited map[string]struct{}, i
 
 func destinationKeyForFile(destKey, filename string) string {
 	if destKey == "" || strings.HasSuffix(destKey, "/") {
-		return joinS3Key(destKey, filename)
+		return destKey + filename
 	}
-	return cleanS3Key(destKey)
+	return destKey
 }
 
 func joinS3Key(prefix, name string) string {
-	prefix = strings.Trim(prefix, "/")
-	name = strings.TrimLeft(name, "/")
-	if prefix == "" {
-		return cleanS3Key(name)
+	if prefix != "" && !strings.HasSuffix(prefix, "/") {
+		prefix += "/"
 	}
-	return cleanS3Key(path.Join(prefix, name))
-}
-
-func cleanS3Key(key string) string {
-	return strings.TrimLeft(path.Clean("/"+filepath.ToSlash(key)), "/")
+	return prefix + name
 }
 
 func contentTypeFor(localPath, explicit string) string {
@@ -171,18 +165,6 @@ func Selected(rel string, include, exclude []string) bool {
 		return false
 	}
 	return !matchesAny(rel, exclude)
-}
-
-func RelativeKey(key, prefix string) string {
-	key = strings.TrimLeft(path.Clean("/"+key), "/")
-	prefix = strings.TrimLeft(path.Clean("/"+prefix), "/")
-	if prefix == "." {
-		prefix = ""
-	}
-	if prefix != "" && !strings.HasSuffix(prefix, "/") {
-		prefix += "/"
-	}
-	return strings.TrimPrefix(key, prefix)
 }
 
 func matchesAny(rel string, patterns []string) bool {

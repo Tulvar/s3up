@@ -136,6 +136,10 @@ non-empty destination prefix ending in `/`; `s3://bucket` and prefixes such as
 must also end in `/`. This prevents a prefix such as `site` from also matching
 neighboring keys such as `site-backup/...`.
 
+S3 keys and prefixes are used literally. Extra slashes, including a slash
+immediately after the bucket separator, and `.` or `..` segments are part of
+the key. Use `s3://bucket/site/` for the prefix `site/`.
+
 By default upload and sync skip symlinked files found inside the source tree.
 A symlink passed directly as the sync source is rejected to prevent an empty
 local plan from triggering remote deletes. Pass `--follow-symlinks` to upload

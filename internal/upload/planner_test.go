@@ -393,7 +393,7 @@ func TestPlanClonesMetadata(t *testing.T) {
 	}
 }
 
-func TestPlanCleansDestinationKey(t *testing.T) {
+func TestPlanPreservesDestinationKey(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
@@ -408,7 +408,7 @@ func TestPlanCleansDestinationKey(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if got[0].Key != "uploads/artifact.txt" {
+	if got[0].Key != "/uploads//nested/../artifact.txt" {
 		t.Fatalf("got key %q", got[0].Key)
 	}
 }

@@ -22,9 +22,9 @@ func TestParseS3Prefix(t *testing.T) {
 			want: S3Prefix{Bucket: "bucket", Prefix: "site/assets/"},
 		},
 		{
-			name: "trims leading prefix slashes",
-			raw:  "s3://bucket//site/",
-			want: S3Prefix{Bucket: "bucket", Prefix: "site/"},
+			name: "preserves prefix slashes and dot segments",
+			raw:  "s3://bucket//site//assets/../",
+			want: S3Prefix{Bucket: "bucket", Prefix: "/site//assets/../"},
 		},
 		{
 			name:    "missing scheme",

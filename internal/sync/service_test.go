@@ -491,6 +491,43 @@ func TestServiceSyncWaitsForUploadsBeforeDeleting(t *testing.T) {
 	}
 }
 
+func TestServiceSyncDeletePreservesLiteralPrefix(t *testing.T) {
+	t.Parallel()
+
+	const prefix = "/site//assets/../"
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "same.txt"), "same")
+	writeFile(t, filepath.Join(dir, "new.txt"), "new")
+
+	lister := &recordingLister{entries: []list.Entry{
+		{Key: prefix + "same.txt", Size: 4},
+		{Key: prefix + "old.txt"},
+		{Key: prefix + "keep//saved.txt"},
+		{Key: "/site/neighbor.txt"},
+	}}
+	uploader := &recordingUploader{}
+	deleter := &recordingDeleter{}
+	err := (Service{Lister: lister, Uploader: uploader, Deleter: deleter}).Sync(t.Context(), Request{
+		Source:        dir,
+		Destination:   list.S3Prefix{Bucket: "bucket", Prefix: prefix},
+		Delete:        true,
+		ConfirmDelete: true,
+		Exclude:       []string{"keep//*.txt"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if lister.input.Prefix != prefix {
+		t.Errorf("listed prefix %q, want %q", lister.input.Prefix, prefix)
+	}
+	if uploader.len() != 1 || uploader.inputs[0].Key != prefix+"new.txt" {
+		t.Errorf("unexpected uploads: %+v", uploader.inputs)
+	}
+	if deleter.len() != 1 || deleter.inputs[0].Key != prefix+"old.txt" {
+		t.Errorf("unexpected deletes: %+v", deleter.inputs)
+	}
+}
+
 func TestServiceSyncRejectsNegativeWorkers(t *testing.T) {
 	t.Parallel()
 

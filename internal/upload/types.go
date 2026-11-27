@@ -23,7 +23,7 @@ func ParseS3URI(raw string) (S3URI, error) {
 		return S3URI{}, fmt.Errorf("destination must include a bucket and key")
 	}
 
-	return S3URI{Bucket: bucket, Key: strings.TrimLeft(key, "/")}, nil
+	return S3URI{Bucket: bucket, Key: key}, nil
 }
 
 type Request struct {

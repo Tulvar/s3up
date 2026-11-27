@@ -88,8 +88,8 @@ func Plan(local []upload.PlannedUpload, remote []list.Entry, req Request) ([]Act
 			if _, ok := localKeys[entry.Key]; ok {
 				continue
 			}
-			rel := relativeRemoteKey(entry.Key, req.Destination.Prefix)
-			if !upload.Selected(rel, req.Include, req.Exclude) {
+			rel, inPrefix := strings.CutPrefix(entry.Key, req.Destination.Prefix)
+			if !inPrefix || !upload.Selected(rel, req.Include, req.Exclude) {
 				continue
 			}
 			actions = append(actions, Action{
@@ -163,8 +163,4 @@ func fileMD5(path string) (string, error) {
 		return "", fmt.Errorf("read for checksum: %w", err)
 	}
 	return hex.EncodeToString(hash.Sum(nil)), nil
-}
-
-func relativeRemoteKey(key, prefix string) string {
-	return upload.RelativeKey(key, prefix)
 }
