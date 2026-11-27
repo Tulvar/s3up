@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 	stdsync "sync"
 
@@ -88,6 +89,20 @@ func (s Service) Sync(ctx context.Context, req Request) error {
 }
 
 func (s Service) runActions(ctx context.Context, actions []Action, workers int, req Request) error {
+	// Plan appends deletes after the local actions. Wait for all uploads before deleting anything.
+	firstDelete := slices.IndexFunc(actions, func(action Action) bool {
+		return action.Kind == ActionDelete
+	})
+	if firstDelete == -1 {
+		return s.runActionBatch(ctx, actions, workers, req, 0, len(actions))
+	}
+	if err := s.runActionBatch(ctx, actions[:firstDelete], workers, req, 0, len(actions)); err != nil {
+		return err
+	}
+	return s.runActionBatch(ctx, actions[firstDelete:], workers, req, firstDelete, len(actions))
+}
+
+func (s Service) runActionBatch(ctx context.Context, actions []Action, workers int, req Request, offset, total int) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -124,7 +139,7 @@ sendJobs:
 		select {
 		case <-ctx.Done():
 			break sendJobs
-		case jobs <- actionJob{Index: i + 1, Total: len(actions), Action: action}:
+		case jobs <- actionJob{Index: offset + i + 1, Total: total, Action: action}:
 		}
 	}
 	close(jobs)
@@ -134,7 +149,7 @@ sendJobs:
 	case err := <-errs:
 		return err
 	default:
-		return nil
+		return ctx.Err()
 	}
 }
 

@@ -23,20 +23,21 @@ func ParseS3URI(raw string) (S3URI, error) {
 		return S3URI{}, fmt.Errorf("destination must include a bucket and key")
 	}
 
-	return S3URI{Bucket: bucket, Key: strings.TrimLeft(key, "/")}, nil
+	return S3URI{Bucket: bucket, Key: key}, nil
 }
 
 type Request struct {
-	Source      string
-	Destination S3URI
-	Recursive   bool
-	FollowLinks bool
-	DryRun      bool
-	Include     []string
-	Exclude     []string
-	Options     Options
-	Progress    bool
-	Workers     int
+	Source              string
+	Destination         S3URI
+	Recursive           bool
+	FollowLinks         bool
+	RejectSourceSymlink bool
+	DryRun              bool
+	Include             []string
+	Exclude             []string
+	Options             Options
+	Progress            bool
+	Workers             int
 }
 
 type Options struct {
@@ -55,18 +56,10 @@ type PlannedUpload struct {
 	Metadata     map[string]string
 	StorageClass string
 	ACL          string
+	source       localSource
 }
 
-type UploadInput struct {
-	LocalPath    string
-	Bucket       string
-	Key          string
-	Size         int64
-	ContentType  string
-	Metadata     map[string]string
-	StorageClass string
-	ACL          string
-}
+type UploadInput PlannedUpload
 
 type ObjectUploader interface {
 	Upload(ctx context.Context, input UploadInput) error

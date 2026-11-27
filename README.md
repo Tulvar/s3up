@@ -35,6 +35,9 @@ path-style addressing by default. Use `--addressing-style=virtual` to force
 virtual-hosted addressing. `--path-style` is kept as a shortcut for
 `--addressing-style=path`.
 
+HTTP S3 endpoints require `--allow-insecure-endpoint`, including endpoints
+configured through AWS environment variables or a shared AWS profile.
+
 Useful flags:
 
 ```sh
@@ -136,10 +139,20 @@ non-empty destination prefix ending in `/`; `s3://bucket` and prefixes such as
 must also end in `/`. This prevents a prefix such as `site` from also matching
 neighboring keys such as `site-backup/...`.
 
+Malformed `--include` and `--exclude` patterns fail the command. For a single
+object delete, patterns containing `/` match the full key and other patterns
+match the base name. Excludes take precedence over includes.
+
+S3 keys and prefixes are used literally. Extra slashes, including a slash
+immediately after the bucket separator, and `.` or `..` segments are part of
+the key. Use `s3://bucket/site/` for the prefix `site/`.
+
 By default upload and sync skip symlinked files found inside the source tree.
 A symlink passed directly as the sync source is rejected to prevent an empty
 local plan from triggering remote deletes. Pass `--follow-symlinks` to upload
 the symlink target under the symlink's relative key.
+With the default settings, upload and checksum reads fail if the planned file
+has been replaced before it can be opened.
 
 `--checksum` compares same-size local files with simple MD5-compatible remote
 ETags. Multipart, encrypted, or S3-compatible objects with non-MD5 ETags are
@@ -174,7 +187,7 @@ s3up upload ./dist s3://bucket/site/ \
 
 ## Development
 
-Development and release builds require Go 1.26.5 or newer.
+Development and release builds require Go 1.27.4 or newer.
 
 ```sh
 go test ./...
@@ -192,14 +205,14 @@ make build
 
 ## Integration Tests
 
-Integration tests use MinIO as an S3-compatible endpoint.
+Integration tests use RustFS as an S3-compatible endpoint on `127.0.0.1:9000`.
 
 ```sh
 make integration
 ```
 
-To stop and remove the MinIO volume:
+To stop RustFS and remove its test volume:
 
 ```sh
-make minio-down
+make s3-down
 ```

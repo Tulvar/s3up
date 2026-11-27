@@ -23,10 +23,10 @@ import (
 	"github.com/tulvar/s3up/internal/upload"
 )
 
-func TestUploadToMinIO(t *testing.T) {
+func TestUploadToS3(t *testing.T) {
 	endpoint := envOrDefault("S3UP_INTEGRATION_ENDPOINT", "http://localhost:9000")
-	accessKey := envOrDefault("S3UP_INTEGRATION_ACCESS_KEY_ID", "minioadmin")
-	secretKey := envOrDefault("S3UP_INTEGRATION_SECRET_ACCESS_KEY", "minioadmin")
+	accessKey := envOrDefault("S3UP_INTEGRATION_ACCESS_KEY_ID", "s3up-test")
+	secretKey := envOrDefault("S3UP_INTEGRATION_SECRET_ACCESS_KEY", "s3up-test-secret")
 	region := envOrDefault("S3UP_INTEGRATION_REGION", "us-east-1")
 
 	t.Setenv("AWS_ACCESS_KEY_ID", accessKey)
@@ -145,10 +145,10 @@ func TestUploadToMinIO(t *testing.T) {
 	}
 }
 
-func TestSyncToMinIOUploadsOnlyChangedAndNewObjects(t *testing.T) {
+func TestSyncToS3UploadsOnlyChangedAndNewObjects(t *testing.T) {
 	endpoint := envOrDefault("S3UP_INTEGRATION_ENDPOINT", "http://localhost:9000")
-	accessKey := envOrDefault("S3UP_INTEGRATION_ACCESS_KEY_ID", "minioadmin")
-	secretKey := envOrDefault("S3UP_INTEGRATION_SECRET_ACCESS_KEY", "minioadmin")
+	accessKey := envOrDefault("S3UP_INTEGRATION_ACCESS_KEY_ID", "s3up-test")
+	secretKey := envOrDefault("S3UP_INTEGRATION_SECRET_ACCESS_KEY", "s3up-test-secret")
 	region := envOrDefault("S3UP_INTEGRATION_REGION", "us-east-1")
 
 	t.Setenv("AWS_ACCESS_KEY_ID", accessKey)
@@ -303,10 +303,10 @@ func TestSyncToMinIOUploadsOnlyChangedAndNewObjects(t *testing.T) {
 	}
 }
 
-func TestDeleteFromMinIO(t *testing.T) {
+func TestDeleteFromS3(t *testing.T) {
 	endpoint := envOrDefault("S3UP_INTEGRATION_ENDPOINT", "http://localhost:9000")
-	accessKey := envOrDefault("S3UP_INTEGRATION_ACCESS_KEY_ID", "minioadmin")
-	secretKey := envOrDefault("S3UP_INTEGRATION_SECRET_ACCESS_KEY", "minioadmin")
+	accessKey := envOrDefault("S3UP_INTEGRATION_ACCESS_KEY_ID", "s3up-test")
+	secretKey := envOrDefault("S3UP_INTEGRATION_SECRET_ACCESS_KEY", "s3up-test-secret")
 	region := envOrDefault("S3UP_INTEGRATION_REGION", "us-east-1")
 
 	t.Setenv("AWS_ACCESS_KEY_ID", accessKey)

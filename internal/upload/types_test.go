@@ -17,9 +17,9 @@ func TestParseS3URI(t *testing.T) {
 			want: S3URI{Bucket: "my-bucket", Key: "path/to/file.txt"},
 		},
 		{
-			name: "trims extra key slashes",
-			raw:  "s3://my-bucket//path/to/file.txt",
-			want: S3URI{Bucket: "my-bucket", Key: "path/to/file.txt"},
+			name: "preserves key slashes and dot segments",
+			raw:  "s3://my-bucket//path//to/../file.txt",
+			want: S3URI{Bucket: "my-bucket", Key: "/path//to/../file.txt"},
 		},
 		{
 			name:    "missing scheme",

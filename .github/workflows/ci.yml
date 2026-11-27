@@ -42,7 +42,7 @@ jobs:
         run: make build
 
   integration:
-    name: MinIO Integration
+    name: S3 Integration
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -59,6 +59,6 @@ jobs:
       - name: Run integration tests
         run: make integration
 
-      - name: Stop MinIO
+      - name: Stop RustFS
         if: always()
-        run: make minio-down
+        run: make s3-down

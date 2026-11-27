@@ -11,7 +11,10 @@ import (
 )
 
 func Plan(req Request) ([]PlannedUpload, error) {
-	info, err := statSource(req.Source, req.FollowLinks)
+	if err := ValidateFilters(req.Include, req.Exclude); err != nil {
+		return nil, err
+	}
+	info, err := statSource(req)
 	if err != nil {
 		return nil, fmt.Errorf("stat source: %w", err)
 	}
@@ -33,6 +36,7 @@ func Plan(req Request) ([]PlannedUpload, error) {
 			Metadata:     cloneMetadata(req.Options.Metadata),
 			StorageClass: req.Options.StorageClass,
 			ACL:          req.Options.ACL,
+			source:       localSource{fileInfo: info, followLinks: req.FollowLinks},
 		}}, nil
 	}
 
@@ -40,8 +44,17 @@ func Plan(req Request) ([]PlannedUpload, error) {
 		return nil, fmt.Errorf("source is a directory; use --recursive")
 	}
 
+	var root *os.Root
+	if !req.FollowLinks {
+		root, err = openVerifiedRoot(req.Source, info)
+		if err != nil {
+			return nil, fmt.Errorf("open source directory: %w", err)
+		}
+		defer root.Close()
+	}
+
 	var items []PlannedUpload
-	err = walkUploadDir(req.Source, req.Source, req, make(map[string]struct{}), &items)
+	err = walkUploadDir(".", req, root, info, make(map[string]struct{}), &items)
 	if err != nil {
 		return nil, fmt.Errorf("walk source: %w", err)
 	}
@@ -49,78 +62,108 @@ func Plan(req Request) ([]PlannedUpload, error) {
 	return items, nil
 }
 
-func statSource(localPath string, followLinks bool) (fs.FileInfo, error) {
-	if followLinks {
-		return os.Stat(localPath)
+func statSource(req Request) (fs.FileInfo, error) {
+	if req.FollowLinks {
+		return os.Stat(req.Source)
+	}
+	// A trailing separator makes Lstat follow a symlink to a directory.
+	localPath := strings.TrimRightFunc(req.Source, func(char rune) bool {
+		return char <= 127 && os.IsPathSeparator(byte(char))
+	})
+	if len(localPath) == len(filepath.VolumeName(req.Source)) {
+		localPath = req.Source
 	}
 	info, err := os.Lstat(localPath)
 	if err != nil {
 		return nil, err
 	}
 	if info.Mode()&os.ModeSymlink != 0 {
+		if req.RejectSourceSymlink {
+			return nil, fmt.Errorf("source is a symlink; use --follow-symlinks to follow it")
+		}
 		return nil, nil
 	}
 	return info, nil
 }
 
-func entryInfo(localPath string, entry fs.DirEntry, followLinks bool) (fs.FileInfo, error) {
+func followedEntryInfo(localPath string, entry fs.DirEntry) (fs.FileInfo, error) {
 	if entry.Type()&os.ModeSymlink == 0 {
 		return entry.Info()
-	}
-	if !followLinks {
-		return nil, nil
 	}
 	return os.Stat(localPath)
 }
 
-func walkUploadDir(root, dir string, req Request, visited map[string]struct{}, items *[]PlannedUpload) error {
-	realDir, err := filepath.EvalSymlinks(dir)
-	if err == nil {
-		if _, ok := visited[realDir]; ok {
-			return nil
+func walkUploadDir(dir string, req Request, root *os.Root, rootInfo fs.FileInfo, visited map[string]struct{}, items *[]PlannedUpload) error {
+	var entries []fs.DirEntry
+	var err error
+	if root != nil {
+		entries, err = fs.ReadDir(root.FS(), ".")
+	} else {
+		localDir := filepath.Join(req.Source, dir)
+		if realDir, evalErr := filepath.EvalSymlinks(localDir); evalErr == nil {
+			if _, ok := visited[realDir]; ok {
+				return nil
+			}
+			visited[realDir] = struct{}{}
 		}
-		visited[realDir] = struct{}{}
+		entries, err = os.ReadDir(localDir)
 	}
-
-	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return err
 	}
 
 	for _, entry := range entries {
-		localPath := filepath.Join(dir, entry.Name())
-		info, err := entryInfo(localPath, entry, req.FollowLinks)
+		rel := filepath.Join(dir, entry.Name())
+		localPath := filepath.Join(req.Source, rel)
+		var info fs.FileInfo
+		if root != nil {
+			info, err = root.Lstat(entry.Name())
+		} else {
+			info, err = followedEntryInfo(localPath, entry)
+		}
 		if err != nil {
 			return err
 		}
-		if info == nil {
+		if root != nil && info.Mode()&os.ModeSymlink != 0 {
 			continue
 		}
 		if info.IsDir() {
-			if err := walkUploadDir(root, localPath, req, visited, items); err != nil {
+			var child *os.Root
+			if root != nil {
+				child, err = root.OpenRoot(entry.Name())
+				if err != nil {
+					return err
+				}
+				if err := verifyRoot(child, info); err != nil {
+					child.Close()
+					return err
+				}
+			}
+			err = walkUploadDir(rel, req, child, rootInfo, visited, items)
+			if child != nil {
+				child.Close()
+			}
+			if err != nil {
 				return err
 			}
 			continue
 		}
 
-		rel, err := filepath.Rel(root, localPath)
-		if err != nil {
-			return err
-		}
-		rel = filepath.ToSlash(rel)
-		if !Selected(rel, req.Include, req.Exclude) {
+		keySuffix := filepath.ToSlash(rel)
+		if !Selected(keySuffix, req.Include, req.Exclude) {
 			continue
 		}
 
 		*items = append(*items, PlannedUpload{
 			LocalPath:    localPath,
 			Bucket:       req.Destination.Bucket,
-			Key:          joinS3Key(req.Destination.Key, rel),
+			Key:          joinS3Key(req.Destination.Key, keySuffix),
 			Size:         info.Size(),
 			ContentType:  contentTypeFor(localPath, req.Options.ContentType),
 			Metadata:     cloneMetadata(req.Options.Metadata),
 			StorageClass: req.Options.StorageClass,
 			ACL:          req.Options.ACL,
+			source:       localSource{rootPath: req.Source, rootInfo: rootInfo, relativePath: rel, fileInfo: info, followLinks: req.FollowLinks},
 		})
 	}
 
@@ -129,22 +172,16 @@ func walkUploadDir(root, dir string, req Request, visited map[string]struct{}, i
 
 func destinationKeyForFile(destKey, filename string) string {
 	if destKey == "" || strings.HasSuffix(destKey, "/") {
-		return joinS3Key(destKey, filename)
+		return destKey + filename
 	}
-	return cleanS3Key(destKey)
+	return destKey
 }
 
 func joinS3Key(prefix, name string) string {
-	prefix = strings.Trim(prefix, "/")
-	name = strings.TrimLeft(name, "/")
-	if prefix == "" {
-		return cleanS3Key(name)
+	if prefix != "" && !strings.HasSuffix(prefix, "/") {
+		prefix += "/"
 	}
-	return cleanS3Key(path.Join(prefix, name))
-}
-
-func cleanS3Key(key string) string {
-	return strings.TrimLeft(path.Clean("/"+filepath.ToSlash(key)), "/")
+	return prefix + name
 }
 
 func contentTypeFor(localPath, explicit string) string {
@@ -166,6 +203,7 @@ func cloneMetadata(metadata map[string]string) map[string]string {
 	return cloned
 }
 
+// Selected matches filters that have already been checked by ValidateFilters.
 func Selected(rel string, include, exclude []string) bool {
 	if len(include) > 0 && !matchesAny(rel, include) {
 		return false
@@ -173,26 +211,43 @@ func Selected(rel string, include, exclude []string) bool {
 	return !matchesAny(rel, exclude)
 }
 
-func RelativeKey(key, prefix string) string {
-	key = strings.TrimLeft(path.Clean("/"+key), "/")
-	prefix = strings.TrimLeft(path.Clean("/"+prefix), "/")
-	if prefix == "." {
-		prefix = ""
+func ValidateFilters(include, exclude []string) error {
+	for _, filter := range []struct {
+		name     string
+		patterns []string
+	}{
+		{name: "--include", patterns: include},
+		{name: "--exclude", patterns: exclude},
+	} {
+		for _, pattern := range filter.patterns {
+			if err := ValidatePattern(pattern); err != nil {
+				return fmt.Errorf("%s: %w", filter.name, err)
+			}
+		}
 	}
-	if prefix != "" && !strings.HasSuffix(prefix, "/") {
-		prefix += "/"
+	return nil
+}
+
+func ValidatePattern(raw string) error {
+	pattern := normalizePattern(raw)
+	if pattern == "" {
+		return fmt.Errorf("pattern cannot be empty")
 	}
-	return strings.TrimPrefix(key, prefix)
+	if _, err := path.Match(pattern, ""); err != nil {
+		return fmt.Errorf("invalid glob pattern %q: %w", raw, err)
+	}
+	return nil
+}
+
+func normalizePattern(pattern string) string {
+	return filepath.ToSlash(strings.TrimSpace(pattern))
 }
 
 func matchesAny(rel string, patterns []string) bool {
 	rel = filepath.ToSlash(rel)
 	base := path.Base(rel)
 	for _, pattern := range patterns {
-		pattern = filepath.ToSlash(strings.TrimSpace(pattern))
-		if pattern == "" {
-			continue
-		}
+		pattern = normalizePattern(pattern)
 
 		target := rel
 		if !strings.Contains(pattern, "/") {

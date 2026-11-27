@@ -15,6 +15,10 @@ func TestPlanSingleFileUsesExplicitDestinationKey(t *testing.T) {
 	dir := t.TempDir()
 	file := filepath.Join(dir, "artifact.txt")
 	writeFile(t, file, "hello")
+	info, err := os.Lstat(file)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	got, err := Plan(Request{
 		Source:      file,
@@ -30,6 +34,7 @@ func TestPlanSingleFileUsesExplicitDestinationKey(t *testing.T) {
 		Key:         "uploads/custom.txt",
 		Size:        5,
 		ContentType: "text/plain; charset=utf-8",
+		source:      localSource{fileInfo: info},
 	}}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %+v, want %+v", got, want)
@@ -393,7 +398,7 @@ func TestPlanClonesMetadata(t *testing.T) {
 	}
 }
 
-func TestPlanCleansDestinationKey(t *testing.T) {
+func TestPlanPreservesDestinationKey(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
@@ -408,7 +413,7 @@ func TestPlanCleansDestinationKey(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if got[0].Key != "uploads/artifact.txt" {
+	if got[0].Key != "/uploads//nested/../artifact.txt" {
 		t.Fatalf("got key %q", got[0].Key)
 	}
 }
