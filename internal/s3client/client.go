@@ -47,9 +47,6 @@ func NewDeleter(ctx context.Context, cfg config.Config) (*Deleter, error) {
 }
 
 func newClient(ctx context.Context, cfg config.Config) (*s3.Client, error) {
-	if err := validateEndpoint(cfg.EndpointURL, cfg.AllowInsecureEndpoint); err != nil {
-		return nil, err
-	}
 	usePathStyle, err := usePathStyle(cfg)
 	if err != nil {
 		return nil, err
@@ -75,6 +72,12 @@ func newClient(ctx context.Context, cfg config.Config) (*s3.Client, error) {
 		}
 		o.UsePathStyle = usePathStyle
 	})
+
+	// The SDK resolves endpoint settings from the environment and shared config
+	// before applying the explicit endpoint override.
+	if err := validateEndpoint(aws.ToString(client.Options().BaseEndpoint), cfg.AllowInsecureEndpoint); err != nil {
+		return nil, err
+	}
 
 	return client, nil
 }

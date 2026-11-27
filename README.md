@@ -35,6 +35,9 @@ path-style addressing by default. Use `--addressing-style=virtual` to force
 virtual-hosted addressing. `--path-style` is kept as a shortcut for
 `--addressing-style=path`.
 
+HTTP S3 endpoints require `--allow-insecure-endpoint`, including endpoints
+configured through AWS environment variables or a shared AWS profile.
+
 Useful flags:
 
 ```sh
