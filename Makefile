@@ -1,4 +1,4 @@
-.PHONY: build integration minio-down minio-up test vulncheck
+.PHONY: build integration s3-down s3-up test vulncheck
 
 test:
 	go test ./...
@@ -9,11 +9,11 @@ vulncheck:
 build:
 	go build ./cmd/s3up
 
-minio-up:
-	docker compose up -d minio
+s3-up:
+	docker compose up -d --wait --wait-timeout 45 rustfs
 
-minio-down:
+s3-down:
 	docker compose down -v
 
-integration: minio-up
+integration: s3-up
 	go test ./... -tags=integration

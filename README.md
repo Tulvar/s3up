@@ -205,14 +205,14 @@ make build
 
 ## Integration Tests
 
-Integration tests use MinIO as an S3-compatible endpoint.
+Integration tests use RustFS as an S3-compatible endpoint on `127.0.0.1:9000`.
 
 ```sh
 make integration
 ```
 
-To stop and remove the MinIO volume:
+To stop RustFS and remove its test volume:
 
 ```sh
-make minio-down
+make s3-down
 ```
